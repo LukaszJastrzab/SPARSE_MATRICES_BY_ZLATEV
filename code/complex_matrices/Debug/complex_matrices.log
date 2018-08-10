@@ -1,0 +1,21 @@
+﻿Build started 2014-03-14 03:51:59.
+     1>Project "A:\WORK\SPARSE MATRICES\code\complex_matrices\complex_matrices.vcxproj" on node 2 (build target(s)).
+     1>InitializeBuildStatus:
+         Touching "Debug\complex_matrices.unsuccessfulbuild".
+       ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /Od /Oy- /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc100.pdb" /Gd /TP /analyze- /errorReport:prompt complex_main.cpp
+         complex_main.cpp
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"A:\WORK\SPARSE MATRICES\code\Debug\complex_matrices.exe" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"Debug\complex_matrices.exe.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"A:\WORK\SPARSE MATRICES\code\Debug\complex_matrices.pdb" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"A:\WORK\SPARSE MATRICES\code\Debug\complex_matrices.lib" /MACHINE:X86 Debug\complex_main.obj
+         LINK : A:\WORK\SPARSE MATRICES\code\Debug\complex_matrices.exe not found or not built by the last incremental link; performing full link
+         complex_matrices.vcxproj -> A:\WORK\SPARSE MATRICES\code\Debug\complex_matrices.exe
+       Manifest:
+         C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\bin\mt.exe /nologo /verbose /outputresource:"A:\WORK\SPARSE MATRICES\code\Debug\complex_matrices.exe;#1" /manifest Debug\complex_matrices.exe.intermediate.manifest
+       FinalizeBuildStatus:
+         Deleting file "Debug\complex_matrices.unsuccessfulbuild".
+         Touching "Debug\complex_matrices.lastbuildstate".
+     1>Done Building Project "A:\WORK\SPARSE MATRICES\code\complex_matrices\complex_matrices.vcxproj" (build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:01.93

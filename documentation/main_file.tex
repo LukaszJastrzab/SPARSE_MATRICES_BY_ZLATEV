@@ -1,0 +1,477 @@
+%& --translate-file=cp1250pl
+%%====================================================================%%
+%%                AKADEMIA GÓRNICZO-HUTNICZA W KRAKOWIE
+%%                    WYDZIA£ MATEMATYKI STOSOWANEJ
+%%                          PRACA MAGISTERSKA
+%%
+%%       Autor : ----
+%% Specjalnoœæ : ----
+%%   Nr albumu : ----
+%%    Promotor : ----
+%%  Data (wer) : DD.MM.YYYY ...
+%%
+%%--------------------------------------------------------------------%%
+%%
+%%
+%% ---------------
+%%   PLIK G£ÓWNY
+%% ---------------
+%%
+\documentclass[man,oik]{mgrwms}
+%%
+%  Wartoœci dla opcji --translate-file :
+%  - cp1250pl : Windows East European
+%  - il2-pl   : iso8859-2 (ISO Latin 2)
+%
+%  Najistotniejsze opcje klasy:
+%  - woman|man : wersja odpowiednio dla Pañ i Panów,
+%  - mfu|oik|pit|miz|opt : specjalnoœci wed³ug skrótów:
+%      * oik - Matematyka obliczeniowa i komputerowa
+%      * pit - Matematyka w naukach technicznych i przyrodniczych
+%      * miz - Matematyka w informatyce i zarz¹dzaniu
+%      * opt - Optymalizacja
+%  (opis pozosta³ych opcji znajduje siê w dokumentacji 'UserGuide.pdf')
+%%
+%% ------- PAKIETY ------- %%
+%%
+% \usepackage[cp1250]{inputenc}  % lub z opcj¹ 'latin2' dla kodowania iso8859-2
+% \usepackage{amsmath}           % ³atwiejszy sk³ad matematyki
+% \usepackage{amssymb}
+% \usepackage{setspace}          % zmiana interlinii (np. 1,5 wiersza odstêpu)
+% \usepackage{makeidx}           % odkomentowaæ, jeœli do³¹czony jest indeks
+%
+%  <... pozostale pakiety wedle uznania ...>
+%
+%\usepackage{polski}         % pakiet polonizacyjny
+% \usepackage[T1]{fontenc}  % lub z opcj¹ 'QX', wymagane dla pakietu 'lmodern'
+\usepackage{lmodern}      % zalecane czcionki LModern
+\usepackage{graphicx} 
+\usepackage{amssymb}
+\usepackage{mathrsfs}
+\usepackage{hyperref}
+
+\usepackage{float}
+\floatstyle{boxed} 
+\restylefloat{figure}
+%  Dodatkowe polecenia które trzeba umieœciæ w preambule:
+%
+% \makeindex  % jeœli do³¹czony jest indeks (nieobowi¹zkowy)
+% \includeonly{...,...,...,...}  % dla warunkowej kompilacji
+%%
+%% BiBTeX (opcjonalnie)
+% \bibliographystyle{ddabbrv}  % lub np. plabbrv, plalpha, plplain ...
+% \nocite{*}
+%%
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+%%
+\newenvironment{proof}[1][Proof.]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}]}{\end{trivlist}}
+\newenvironment{definition}[1][Definition.]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}]}{\end{trivlist}}
+\newenvironment{example}[1][Example.]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}]}{\end{trivlist}}
+\newenvironment{remark}[1][Remark.]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}]}{\end{trivlist}}
+%%
+%%
+\begin{document}
+%%
+%%
+%% ---------------
+%%   NASZE MAKRA
+%% ---------------
+%%
+%  Miejsce na nasze makra. Innym sposobem mo¿e byæ
+%  umieszczenie ich w osobnym pliku i wczytanie poleceniem \input{----}
+%%
+%%
+%% ---------------------------------
+%%   METRYCZKA PRACY i SPIS TREŒCI
+%% ---------------------------------
+%%
+\title{Solving large linear systems with sparse matrices - practical part}
+\author{£ukasz Jastrz¹b}
+\promotor{...}
+\nralbumu{202277}
+\keywords{sparse matrices, Gauss elimination, Householder decomposition, method of successive relaxation}
+%%
+\maketitle
+%%
+%%
+\tableofcontents
+%%
+%%
+%% ----------------------
+%%   STRESZCZENIA PRACY
+%% ----------------------
+%%
+%% ------- POLSKIE ------- %%
+%%
+%\begin{streszczenie}
+%%
+%
+%  <Treœæ streszczenia po polsku>
+%
+%%
+%\end{streszczenie}
+%%
+%% ------- ANGIELSKIE ------- %%
+%%
+\begin{abstract}
+This work is intended to give the user a tool, which is easy to use, and allows solving problems with sparse matrices in most efficient way.
+The full understanding of the usefulness of this tool requires advanced knowledge of the \texttt{C++} language and numerical linear algebra.\\
+\indent Since this is a scientific project, each user has a non-commercial license to use, and there is only one request:\\
+\begin{center}
+\textbf{please send any comments, suggestions and improvements to the e-mail:\\luk.jastrzab@gmail.com}
+\end{center}
+This will help to improve the performance of this tool.
+\end{abstract}
+%%
+%% ------- PODZIÊKOWANIA ------- %%
+%%
+%  <Jeœli zachodzi taka potrzeba, mo¿na dodaæ tutaj tekst podziêkowania,
+%   dedykacji itp.>
+% \newpage
+% \thispagestyle{empty}
+%  <Treœæ podziêkowania z odpowiednim formatowaniem>
+%%
+%%
+%% ----------------------
+%%   G£ÓWNY TEKST PRACY
+%% ----------------------
+%%
+%% ------- WSTÊP ------- %%
+%%
+\begin{wstep}  % ew. np. \begin{wstep}[Wprowadzenie]
+
+We will begin the presentation of two distinguishable because of the usage schemes, decribed by Zahari Zlatev in [1].
+Both schemes are useful in order to solving sparse matrices problems by performing the calculations in most efficient way, and maintaining the object-oriented programming methodology provided by \texttt{C++} language.
+We start with presentation of all relevant fields of both schemes, basing on the example matrix from the general $\mathbb{K}^{5\times 5}$ space.
+
+\section{\texttt{input\_storage\_scheme}}
+The first scheme is called \texttt{input\_storage\_scheme} and is used to perform static (ie. not changing the structure) operations on the matrix.
+Basically, the scheme consists of three arrays containing data for each non-zero element of the matrix (\texttt{AORIG[i]} contains value of \texttt{i}-th stored element, \texttt{RNORIG[i]} - its row number and \texttt{CNORIG[i]} - its column number), as shown on the figure below.
+
+\begin{figure}[h]    		
+    \includegraphics{images/input_scheme.png}
+    \caption{representation of an example matrix in \texttt{input\_storage\_scheme} object}
+		\label{input_scheme}
+\end{figure}
+
+\noindent Besides described lists of data, \texttt{class input\_storage\_scheme} contains other basic data which describes the stored matrix, such as constant fields \texttt{number\_of\_rows} and \texttt{number\_of\_columns} of type \texttt{size\_t} (ie. \texttt{unsigned int}), useful field \texttt{order}, and field \texttt{NNZ} containing number of non-zero elements stored in scheme.\\
+\begin{center} \textbf{Note that order of storing elements should not be valid due to the effect of the algorithms applied to the scheme}
+\end{center}
+\indent The next important thing is that \texttt{class} is declared as a \texttt{template} with \texttt{typename TYPE}, which allows to store matrix over different algebraic structures (eg. real numbers, complex numbers, quaternions, so on).
+During describing the usage of particular methods, will be provided more detailed descriptions concerning planning and realizing the counting process.\\
+\indent To complete the basic desription (containing only mentioned methods and fields) of the \texttt{input\_storage\_scheme}, we provide the most precise desription of it as follows:
+
+\begin{verbatim}
+// ----------------------------------------------------------- code begin
+template <typename TYPE>
+class input_storage_scheme
+{
+public:
+    /// number of added elements - sizeof arrays: AORIG, RNORIG, CNORIG
+    const size_t NNZ;
+    /// sizes of stored matrix
+    const size_t number_of_rows, number_of_columns;
+    /// not always real order of a matrix...
+		    /// just min(number_of_rows,number_of_columns)
+    const size_t order;
+
+private:
+    /// array of ORIGinal values of the input matrix
+    std::vector<TYPE> AORIG;
+    /// array of ORIGinal row numbers of the input matrix
+		    /// (indexed from 0)
+    std::vector<int> RNORIG;
+    /// array of ORIGinal column numbers of the input matrix
+		    /// (indexed from 0)
+    std::vector<int> CNORIG;
+
+public:
+    /// constructor and other public methods...
+		
+private:
+	  /// other private methods and fields
+
+/// friends...
+};
+// ------------------------------------------------------------ code end
+\end{verbatim}
+
+\section{\texttt{dynamic\_storage\_scheme}}
+Second scheme is called \texttt{dynamic\_storage\_scheme} and is much more complicated.
+This scheme allows to perform dynamic operations such as GE (Gauss Elimination), or make some static operations more efficient (eg. iterating of SOR).
+Besides basic constants such as \texttt{number\_of\_rows} or \texttt{number\_of\_columns} of type \texttt{size\_t}, the scheme consists of few particular parts which we will describe on an example matrix from (Figure \ref{input_scheme}).\\
+\indent The first part of a \texttt{dynamic\_storage\_scheme class} is called "row-ordered list" and contains (in its base form) values and column numbers of the matrix elements (ie. \texttt{ALU[i]} and \texttt{CNLU[i]} are respectively the value and the column number of the element stored on \texttt{i}-th position).
+Stored data is organized in compact way and form the so called "row packages".
+Processing this packages should always be done in such a way, that all of the elements belonging to the same row should lying side by side, and there were no free places between them.\\
+\indent After allocation of dynamic scheme, the row-ordered list, storing elements of example matrix from (Figure \ref{input_scheme}), should look like this:
+
+\begin{figure}[h]    
+    \includegraphics{images/ROL.png}
+    \caption{base representation of the \texttt{ROL} in \texttt{dynamic\_storage\_scheme} object}
+\end{figure}
+
+The second part is called "column-ordered list" and contains only row numbers of the matrix elements.
+The data is organized in similar way as in \texttt{ROL} (this time it forms so called "column-packages"), and similar manners of proccessing should be applied to them, ie. all elements belonging to the same column should lying side by side, and there shouldn't be any free places beetwen them.
+In a considered example (Figure \ref{input_scheme}) column-ordered list after initialization should look this way:
+
+\begin{figure}[h]    
+    \includegraphics{images/COL.png}
+    \caption{base representation of the \texttt{COL} in \texttt{dynamic\_storage\_scheme} object}
+\end{figure}
+
+\noindent Note that there is additional \texttt{FREE} (marked by \texttt{-1}) places in both arrays.
+These places are intended to storing further elements arising during dynamic (ie. changing the structure) algorithms.\\
+\indent The performance of any calculation based only on described lists is impossible without the third part of \texttt{dynamic\_storage\_scheme class}, which is called the "integrity array", and consist of following data:\\
+
+\begin{itemize}
+	\item indexes of the specific elements in \texttt{ROL} and \texttt{COL}
+	\begin{figure}[h]    
+    \includegraphics{images/itegrity_tab_1.png}
+	\end{figure}		
+	\item permutations and reverse permutations of rows and columns
+	\begin{figure}[h]    
+    \includegraphics{images/permutations.png}
+	\end{figure}	
+	\item additional memory for efficient performance of the algorithms
+	\begin{figure}[h]    
+    \includegraphics{images/operating_memory.png}
+	\end{figure}		
+\end{itemize}
+
+\noindent Implementation more complex calculations requires proper handling of all data forming part of the described modules.
+		For this purpose has been written few useful methods that we will be discussing later in this documentation.
+		
+\begin{remark}
+Introduced parts are in its basic initial form. Dynamic operations applied to the scheme can cause  dispersal of  row/column packages, hence begin/midle/end pointers of those packages will be changed too. There should also be mentioned that midle pointers (\texttt{HA[*][2]} for  ROL and \texttt{HA[*][5]} for COL) are used to separate for two groups all elements in particular row/column package. For example in GE it is used to separate active and inactive elements in a row/column package.
+\end{remark}
+
+\indent Described lists of elements could be initiated in a slightly different way, ie. values of elements (array \texttt{ALU}) can be stored together with their numbers of rows in column-ordered list.
+In this case row-ordered list will contain only column numbers of the matrix elements.
+Therefore this two parts of the \texttt{dynamic\_storage\_scheme} created on the matrix example from (Figure \ref{input_scheme}) should look this way:\\
+
+\begin{figure}[h]    
+	\includegraphics{images/ROL_COL_INIT.png}
+	\caption{second representation of the \texttt{ROL} in \texttt{dynamic\_storage\_scheme} object}
+\end{figure}
+
+\begin{figure}[h]    
+	\includegraphics{images/COL_ROL_INIT.png}
+	\caption{second representation of the \texttt{COL} in \texttt{dynamic\_storage\_scheme} object}
+\end{figure}	
+
+\noindent Note that parts of integrity arrays should stay the same and only association of matrix elements values is changed.
+Both forms are distinguishable and marked as \texttt{ROL\_INIT} and \texttt{COL\_INIT} respectively.
+The \texttt{dynamic\_storage\_scheme} contains a special field of type \texttt{DYNAMIC\_STATE} (\texttt{typedef enum}), that stores information of current state of the scheme.
+This field may contain one of the following values:\\
+
+\begin{itemize}
+	\item \texttt{ROL\_INIT} - base input state, used by most methods eg. \texttt{LU\_decomposition}, or \texttt{iterative\_preparation}.
+	If we want to solve the system of linear equations (or count the determinant, eigenvalues, so on), it is likely that we will need to initialize a dynamic scheme to that state.
+	\item \texttt{COL\_INIT} - alternative state of the input, which can provide the performance of other algorithms.
+	\item \texttt{ITERATIVE} - state of the scheme characterized by proper set of both lists and the integrity array contents, for optimal performance of SOR-iterative methods.
+	\item \texttt{LU\_DECOMPOSED} - state in which the matrix is decomposed into the product of the factors $L$ and $U$, where $L$ and $U$ are lower and upper triangular matrices respectively.
+	\item \texttt{QR\_DECOMPOSED} - state in which the matrix is decomposed into the product of the factors $Q$ and $R$, where $Q$ is a orthogonal matrix and $R$ is a upper triangular matrix.\\
+\end{itemize}
+
+\indent To complete the basic description of the \texttt{dynamic\_storage\_scheme} we will provide its declaration as follows: 
+
+\begin{verbatim}
+// ----------------------------------------------------------- code begin
+template <typename TYPE>
+class dynamic_storage_scheme
+{
+private:
+    //======== MATRIX - BASIC INFORMATIONS ========
+    /// sizes of stored matrix
+    const size_t number_of_rows, number_of_columns;
+    /// mostly  = min(number_of_rows, number_of_columns)
+    const size_t order;
+
+    //============== Row-Ordered List (ROL) =============
+    size_t NROL;    /// size of row-ordered list
+    size_t LROL;    /// last not free position in ROL
+    size_t CROL;    /// number of non-zeros actualy stored in ROL
+    TYPE *ALU;      /// array of values of the elements stored in scheme
+    int *CNLU;      /// array of column numbers
+
+    //=============== Column-Ordered List (COL) ===============
+    size_t NCOL;    /// size of column-ordered list
+    size_t LCOL;    /// last not free position in COL
+    size_t CCOL;    /// number of non-zeros actualy stored in COL
+    int *RNLU;      /// array of row numbers
+
+    //============== INTEGRITY ARRAYS =============
+    size_t NHA;     /// size of integrity arrays
+                    /// NHA = max(number_of_rows, number_of_columns)
+    TYPE *PIVOT;    /// table of pivots PIVOT[NHA]
+
+    int **HA; /// Array of pointers and permutations HA[NHA][11]
+    /**
+      HA[i][0] - place to store working indexes during algorythmization
+
+      HA[r][1] - first element in r-th row in ROL
+      HA[r][2] - midle pointer in r-th row in ROL
+      HA[r][3] - last element in r-th row in ROL
+      HA[c][4] - first element in c-th column in COL
+      HA[c][5] - midle pointer in c-th column in COL
+      HA[c][6] - last element in c-th column in COL
+
+      // permutations part
+      HA[r][7] - original number of row, which is on r-th position now
+      HA[r][8] - index in HA[*][7] where is placed r-th original row
+      HA[c][9] - original number of column, which is on c-th position now
+      HA[c][10] - index in HA[*][9] where is placed c-th original column
+    */
+
+    DYNAMIC_STATE dynamic_state;    /// variable indicating
+		                                    /// current state of the scheme
+
+public:
+    /// constructor and other public methods...
+		
+private:
+    /// private methods and fields
+
+/// FRIENDS...
+};
+// ------------------------------------------------------------ code end
+\end{verbatim}
+
+Dynamic scheme contains also further fields, which we will discuss later during describing the associated methods.\\
+
+\newpage
+
+\section{Planning the calculations}
+Before detailed description of particular methods we should say something about overall methodology of performing the calculation that are intended to solve the linear systems.\\
+\indent Consider following diagram, where:
+\begin{itemize}
+	\item thick lined are objects,
+	\item thin rectangles means methods,
+	\item clouds contains information about parameters passed by the user,
+	\item dotted rectangle groups different methods, or different states of the same object.
+\end{itemize}
+
+\begin{figure}[h]    
+	\includegraphics{images/solving_scheme.png}
+	\caption{general approach to solving linear systems}
+	\label{planning_the_calculation}
+\end{figure}
+\end{wstep}
+	
+\noindent As we can see on the draw above, the calculation process can be separated for a different variants of following general parts:
+
+\begin{enumerate}
+	\item Creation of the \texttt{input\_storage\_scheme}.
+	\item Creation of the \texttt{dynamic\_storage\_scheme}.
+	\item Preparations on the \texttt{dynamic\_storage\_scheme}.
+	\item Performing the iterative refinement.
+\end{enumerate}
+
+\noindent All these steps are described in details in second chapter (User Guide), where description of all public methods can be found.\\
+\indent The chapter third (Development Guide) contains description of all private methods that are already written and can be useful in order to expand the storing schemes of further functionalities.
+
+%%
+%% ------- ROZDZIA£ 1 ------- %%
+%%
+% \MgrWMSChapterFixHyperrefBug  % jeœli u¿ywamy pakietu 'hyperref'
+\chapter{User guide}
+
+\input{chapter1}
+
+%%
+%
+%  <Treœæ rozdzia³u 1, mo¿e byæ umieszczona w innym pliku
+%   i ³adowana przez \input{----} lub \includeonly{...,...}>
+%
+%%
+
+
+\chapter{Development guide}
+\MgrWMSChapterFixHyperrefBug  % jeœli u¿ywamy pakietu 'hyperref'
+
+%%
+%
+%  <Treœæ rozdzia³u $n$, mo¿e byæ umieszczona w innym pliku
+%   i ³adowana przez \input{----} lub \includeonly{...,...}>
+%
+%%
+%% ------- ZAKOÑCZENIE ------- %%
+%%
+% \begin{zakonczenie}  % ew. np. \begin{zakonczenie}[Podsumowanie]
+%%
+%
+%  <Treœæ zakoñczenia, podsumowania (jeœli jest taka potrzeba umieszczenia)>
+%
+%%
+% \end{zakonczenie}
+%%
+%%
+%% -----------------------
+%%   ROZDZIA£Y DODATKOWE
+%% -----------------------
+%%
+% \appendix
+%%
+%% ------- DODATEK A ------- %%
+%%
+% \MgrWMSChapterFixHyperrefBug  % jeœli u¿ywamy pakietu 'hyperref'
+% \chapter{----}
+%%
+%
+%  <Treœæ dodatku A, mo¿e byæ umieszczona w innym pliku
+%   i ³adowana przez \input{----} lub \includeonly{...,...}>
+%
+%%
+%%
+%% ----------------
+%%   BIBLIOGRAFIA
+%% ----------------
+%%
+%  (Mo¿emy u¿yæ œrodowiska 'thebibliography' lub te¿ bazy BiBTeX)
+%%
+%% BiBTeX (opcjonalnie)
+% \bibliography{<pliki bib>}
+%%
+\begin{thebibliography}{88}  % ew. np. '8' jeœli liczba pozycji < 10
+%%
+%
+% Treœæ bibliografii, wpisy typu:
+\bibitem{<zlatev>} \textsc{Zahari Zlatev} \textit{Computational methods for general sparse matrices,} Kluwer Academic Publishers 1991
+% \bibitem{<Klucz do cytowañ>} ...
+%
+%%
+\end{thebibliography}
+%%
+%%
+%% ----------------------------
+%%   DODATKOWE ELEMENTY PRACY
+%% ----------------------------
+%%
+%  Tutaj umieœcimy dodatkowe (niebowi¹zkowe) czeœci pracy:
+%  - Spis skrótów, symboli i oznaczeñ (jako \chapter*{...})
+%  - Spis ilustracji (\listoffigures)
+%  - Spis tablic (\listoftables)
+%  - Skorowidz (nieobowi¹zkowy, umieszczenie u³atwia lekturê pracy)
+%
+% \chapter*{Spis symboli i oznaczeñ}  % ew. podobny tytu³
+%  
+%   <Tabela ze spisem symboli, oznaczeñ itp.>
+%
+% \listoffigures
+%
+% \listoftables
+%
+% \printindex  % je¿eli do pracy do³¹czony jest indeks
+%%
+%%
+\end{document}
+%%
+%% [Wersja dla: 2010/01/03 v1.05]
+%%====================================================================%%

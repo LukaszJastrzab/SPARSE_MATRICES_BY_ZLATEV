@@ -1,0 +1,328 @@
+We start with a description of the methods with following motivating example of solving linear system using Gauss elimination. Let's look at the code below:
+
+\begin{verbatim}
+// ----------------------------------------------------------- code begin
+1     // size of the problem
+2     const size_t N = 100; 
+3
+4     // vectors of the equation Ax=b           
+5     double x[N], b[N];   
+6
+7     // input scheme containing matrix A          
+8     std_math::input_storage_scheme<double> ISS(N,N); 
+9
+10    // random initialization of the matrix A
+11    for (int row = 0; row < N; ++row)
+12    {
+13        for (int col = 0; col < N; ++col)
+14        {
+15            double val = get_random_element();
+16            if (val != 0)
+17                ISS.add_element(val,row,col);
+18        }
+19    }
+20
+21    // creation of the dynamic scheme containing matrix A
+22    std_math::dynamic_storage_scheme<double> DSS(ISS,5,0.7,std_math::ROL_INIT);
+23
+24    // attempt to decompose the matrix A
+25    try
+26    {
+27        DSS.LU_decomposition(std_math::MARKOWITZ_COST,10,2,0.001,true);
+28    }
+29    catch (std::exception e)
+30    {
+31        std::cout << e.what();
+32        return 0;
+33    }
+34
+35    // random initialization of the vector b
+36    for (int row = 0; row < N; ++row)
+37        b[row] = get_random_element();
+38
+39    // calculate the initial approximation (x_0)
+40    DSS.solve_LU(x,b);
+41
+42    // perform interative refinement
+43    DSS.iterative_refinement(ISS,x,b,0.00000000001,10);
+// ------------------------------------------------------------ code end
+\end{verbatim}
+
+\noindent In the above fragment of code we can easily distinguish four mentioned in "Planning the calculations" points. Namely:
+\begin{enumerate}
+	\item Lines \texttt{8-19} are responsible for creation of the \texttt{input\_storage\_scheme}. In this particular example we create further elements by function \texttt{get\_random\_element}. 
+	\item Line \texttt{22} is responsible for creation of the \texttt{dynamic\_storage\_scheme}. The creation is done by the only constructor that accepts few parameters inter alia already created the input scheme. Other parameters will be described in further section.
+	\item Lines \texttt{25-33} are responsible for preparations of the dynamic scheme. The member function \texttt{LU\_decomposition} may throw some exceptions which will be further described along with parameters that this function uses.
+	\item Line \texttt{43} performs iterative refinement. Function \texttt{iterative\_refinement} gets necessary data and two parameters describing end of the calculations, which will be described later. 
+\end{enumerate}
+
+
+\section{Creation of the \texttt{input\_storage\_scheme}}
+We already know how to allocate the input scheme in most common way. First we used constructor:
+\begin{verbatim}
+input_storage_scheme(size_t number_of_rows, size_t number_of_columns)
+\end{verbatim}
+\noindent and then we fill the scheme using method:
+\begin{verbatim}
+void add_element(TYPE value, size_t row, size_t column)
+\end{verbatim}
+This method doesn't check if stored element is non zero and doesn't check if there was duplication of elements (ie. two elements of the same row and column). The developer must take care that there were no mentioned cases. It is worth to mention here that order of storing further elements is not valid due to performance of any algorythms, and numbers of rows and columns should be indexed from $0$!\\
+\indent There is another way of allocation the input scheme. Namely, we can load it from file. Further more, there are two methods of loading scheme. Following piece of code demonstrates how to do it:
+
+\begin{verbatim}
+// ----------------------------------------------------------- code begin
+1     // declaration of the used namespace
+2     using namespace std_math;
+3
+4     // declaration of two input schemes
+5     input_storage_scheme<double> ISS1, ISS2;
+6
+7     // first way of loading scheme from file
+8     load_scheme_from_file("example_scheme.txt", &ISS1);
+9
+10    // second way of loading scheme from file
+11    load_matrix_from_file("example_matrix.txt", &ISS2);
+12
+13    // print schemes to console
+14    std::cout << ISS1;
+15    std::cout << ISS2;
+// ------------------------------------------------------------ code end
+\end{verbatim}
+
+In line \texttt{5} we allocate two input schemes using default constructor:
+\begin{verbatim}
+input_storage_scheme()
+\end{verbatim}
+\noindent then in lines \texttt{8} and \texttt{11} we are loading the schemes from files, using two different methods. The difference between these two methods lies in format of the input files. First of these methods, namely:
+\begin{verbatim}
+template <typename TYPE2>
+friend void load_scheme_from_file(const char* file_name,
+                                  input_storage_scheme<TYPE2>* ISS)
+\end{verbatim}
+\noindent uses files of following format:
+\begin{verbatim}
+number_of_rows
+number_of_columns
+value1   row1   column1
+value2   row2   column2
+value3   row3   column3
+...
+\end{verbatim}
+\noindent so the example content of the file may looks like this:
+\begin{verbatim}
+5
+5
+2.34    0   0
+4.34    1   2
+3.23    1   1
+34      2   2
+45      3   3
+2.34    4   4
+2.09    3   4
+\end{verbatim}
+Second method, ie.:
+\begin{verbatim}
+template <typename TYPE2>
+friend void load_matrix_from_file(const char* file_name,
+                                  input_storage_scheme<TYPE2>* ISS)
+\end{verbatim}
+\noindent uses files of format:
+\begin{verbatim}
+number_of_rows
+number_of_columns
+value11  value12  value13 ... value1n
+value21  value22  value23 ... value2n
+value31  value32  value33 ... value3n
+...
+valuem1  valuem2  valuem3 ... valuemn
+\end{verbatim}
+The content of the example file may looks in a following way:
+\begin{verbatim}
+5
+5
+7.14     5.21        0         0         0
+   0        0     2.12         0     20.02
+   0     8.09        0         5         0
+   0        2     13.6         0         0
+   4        0        0      8.56         0
+\end{verbatim}
+
+\indent Last two lines (\texttt{14} and \texttt{15}) of the shown code passes the allocated schemes to the output stream by overloaded operator \texttt{<<}:
+\begin{verbatim}
+template <typename TYPE2>
+friend std::ostream& operator<< (std::ostream& out,
+                                 const input_storage_scheme<TYPE2>& ISS)
+\end{verbatim}
+\noindent Format of the output passed to the stream is the same as the file format of the input to the function \texttt{load\_scheme\_from\_file}.\\
+\indent The last method of the creation the input scheme is to copy it from the other, already created scheme. To do this, we use the standard copy constructor, namely:
+\begin{verbatim}
+input_storage_scheme(input_storage_scheme<TYPE>& ISS)
+\end{verbatim}
+This method copies all fields of the input scheme and forms a scheme identical to the given scheme.
+
+\newpage
+
+\section{Creation of the \texttt{dynamic\_storage\_scheme}}
+We will now proceed to the presentation of how to create a dynamic scheme. We can do this by only constructor declared as follows:
+\begin{verbatim}
+template <typename TYPE>
+dynamic_storage_scheme<TYPE>::
+dynamic_storage_scheme( const input_storage_scheme<TYPE>& ISS,
+                        double mult1,
+                        double mult2,
+                        DYNAMIC_STATE _dynamic_state
+                       )
+\end{verbatim}
+\noindent As we can see from the above declaration, following variables should be passed to the dynamic scheme constructor:
+
+\begin{enumerate}
+	\item \texttt{ISS} - the input scheme, dynamic scheme is always created based on the input scheme. The input scheme is also needed to perform iterative refinement (as can be seen at Figure \ref{planning_the_calculation}), so there is also a need to create the input scheme.
+	\item \texttt{mult1} - this parameter decides about size of the major list (ie. list containing \texttt{ALU} array). It gives \texttt{NROL = ISS.NNZ * mult1} in case of \texttt{ROL\_INIT} or \texttt{NCOL = ISS.NNZ * mult1} in case of \texttt{COL\_INIT}.
+	\item \texttt{mult2} - this parameter decides about size of the minor list (ie. list without \texttt{ALU} array). It gives \texttt{NCOL = NROL * mult2} in case of \texttt{ROL\_INIT} or \texttt{NROL = NCOL * mult2} in case of \texttt{COL\_INIT}. This variable has its default value set to \texttt{0.7}, it means that in mostly cases $70\%$ of memory of the major list is needed to perform the algorythms.
+	\item \texttt{\_dynamic\_state} - this enumerate decides in which way the scheme should be allocated ie. row-ordered list as major or column-ordered list as major (respectively \texttt{ROL\_INIT} or \texttt{COL\_INIT}).
+\end{enumerate}
+
+Note that \texttt{mult1} is very important parameter which decides how many additional memory should be allocated in order to perform dynamic operations on the scheme. For example if \texttt{GE} failed on non-singular matrix it is most likely that not enough memory was allocated.
+
+
+\section{Preparations on the \texttt{dynamic\_storage\_scheme}}
+This chapter is intended to present methods that prepare the dynamic scheme to solving linear system using iterative refinement.
+
+\subsection{\texttt{LU\_decomposition}}
+Standard and most popular method for solving general systems is to decompose the system matrix into the factors LU using Gauss Elimination (GE). Performance of this method has been already presented on the motivating example, now we discuss carefully parameters which it applies, but first of all the declaration of this method:
+
+\newpage
+
+\begin{verbatim}
+template <typename TYPE>
+void dynamic_storage_scheme<TYPE>::
+LU_decomposition( PIVOTAL_STRATEGY strategy,
+                  size_t _search,
+                  double _mult,
+                  double eps,
+                  bool pre_sort
+                 )
+\end{verbatim}
+Parameters:
+\begin{enumerate}
+	\item \texttt{strategy} - meaning of this parameter was detailed discussed in the theoretical part of the thesis, now we are obliged to say that it's standard enum, and it takes one of the following values:
+	\begin{itemize}
+		\item \texttt{ONE\_ROW\_SEARCHING}
+		\item \texttt{MARKOWITZ\_COST}
+    \item \texttt{FILLIN\_MINIMALIZATION}
+	\end{itemize}
+	it is worth to mention here that \texttt{MARKOWITZ\_COST} is recomended in most cases.
+	
+	\item \texttt{\_search} - this parameter determines how many active parts of rows should be search in order to find the PIVOT. It has been proved that pivotal strategy based only on one row searching is numerically correct.
+	
+	\item \texttt{\_mult} - it is a stable parameter ie. it decides haw big (in absolute value) elements in comparision with largest we allow to be a PIVOT. For instance it allows elements no less than \texttt{\_mult} times smaller then the bigest in considered row.
+	
+	\item \texttt{eps} - this parameter is intended to discard small elements arised during elimination process. It should be much smaller than unity.
+	
+	\item \texttt{pre\_sort} - this parameter decides if pre sorting of rows should be performed. If true than rows will be sorted by quicksort algorithm in ascending order of number of non-zeroes. It is set by default on true if \texttt{ONE\_ROW\_SEARCHING} strategy is in use.
+		
+\end{enumerate}
+
+\noindent Left us only to discuss about some special cases that may occur in decomposition process. Function \texttt{LU\_decomposition} may throw one of the following exceptions:
+
+\begin{enumerate}
+	\item \texttt{LU\_decomposition: ROL\_INIT state is required}
+	\item \texttt{LU\_decomposition: matrix is not squared}
+	\item \texttt{LU\_decomposition: obtained singular matrix}
+	\item \texttt{LU\_decomposition: not enough memory in ROL}
+	\item \texttt{LU\_decomposition: not enough memory in COL}
+\end{enumerate}
+
+\noindent First case occurs when we try to decompose already modified scheme or scheme in \texttt{COL\_INIT} state (\texttt{ROL\_INIT} state is required by function \texttt{LU\_decomposition}). Second case occurs when we try to decompose not squared matrix (ie. \texttt{number\_of\_columns != number\_of\_rows}). Third exception means that matrix is singular or become singular during decomposition. In this case there is a possibility to try to manipulate \texttt{eps} parameter in order to obtain non singular factors if input matrix is not singular. Last two exceptions means that there is a need to allocate more memory in particular list.
+
+\subsection{\texttt{iterative\_preparation}}
+Function of the following declaration:
+\begin{verbatim}
+template <typename TYPE>
+void dynamic_storage_scheme<TYPE>::iterative_preparation(void)
+\end{verbatim}
+is a function that prepares dynamic scheme for SOR iteration method.
+It shuffles elements inside the lists and sets proper pointers in order to make SOR iteration most efficient.
+
+\begin{center}
+\textbf{It is essential to mention here that SOR method is convergent only for a specific kind of matrices}
+\end{center}
+
+Study following part of code to see how it works:
+\begin{verbatim}
+// ----------------------------------------------------------- code begin
+1       using namespace std_math;
+2
+3       input_storage_scheme<double> ISS;
+4       load_matrix_from_file("example_matrix1.txt", &ISS);
+5
+6       const int N = ISS.order;
+7
+8       dynamic_storage_scheme<double> DSS(ISS, 1, 1, ROL_INIT);
+9
+10      try
+11      {
+12          DSS.iterative_preparation();
+13      }
+14      catch (std::exception e)
+15      {
+16          std::cout << e.what();
+17          return 0;
+18      }
+19
+20      double *x, *b;
+21      x = new double[N];
+22      b = new double[N];
+23      srand((size_t)time(NULL));
+24      for (int i = 0; i < N; ++i)
+25      {
+26          x[i] = 0;
+27          b[i] = get_random_number();
+28      }
+29
+30      DSS.iterative_refinement(ISS, x, b, 0.000000001, 20);
+31
+32      delete[] x;
+33      delete[] b;
+// ------------------------------------------------------------ code end
+\end{verbatim}
+
+Again we can easily distinguish stages that are described by the Figure \ref{planning_the_calculation} as follows:
+
+\begin{enumerate}
+	\item Lines \texttt{3-4} - creation of the input scheme.
+	\item Line \texttt{8} - creation of the dynamic scheme, note that no additional memory is needed.
+	\item Lines \texttt{10-18} - an attempt of preparing the scheme to the SOR itereations. Function \texttt{iterative\_preparation} throws an exception when it does not find at least one diagonal element, which means that at least one diagonal element is equal to zero. It also throws an exception when we try to prepare already disturbed scheme (ie. \texttt{dynamic\_state != ROL\_INIT}).
+	\item Lines \texttt{20-28} - preparation of the needed data such as first approximation \texttt{x} and right side vetor \texttt{b} of the equation \texttt{Ax=b}.
+	\item Line \texttt{30} performance of the iterative refinement.
+\end{enumerate}
+
+\section{Performing the iterative refinement}
+Now we proceed to detailed description of the method   that is essential in order to get an accurate solution. Method is declared as follows:
+
+\begin{verbatim}
+template <typename TYPE>
+void dynamic_storage_scheme<TYPE>::
+iterative_refinement( const input_storage_scheme<TYPE>& ISS,
+                      TYPE *x,
+                      TYPE *b,
+                      double acc,
+                      size_t max_it
+                    ) const
+\end{verbatim}
+
+First of all, see that method is declared as \texttt{const}, so it can not change the structure of the dynamic scheme, and it takes following parameters:
+
+\begin{enumerate}
+	\item \texttt{ISS} - the input scheme which was a base during creaetion of the dynamic scheme, this scheme also can not be modified by \texttt{iterative\_refinement} method.
+	\item \texttt{x} - in/out parameter, first approximation (in) and desired solution (out).
+	\item \texttt{b} - right side vector of the equation $Ax=b$.
+	\item \texttt{acc} - required accuracy, iterative calculations stops if norm of the residual vector is equal or less than this parameter.
+	\item \texttt{max\_it} - maximum permissible number of iterations.
+\end{enumerate}
+\indent Tt is worth to mention here that this method has involved another (the third) conditional of the end of iterative refinement process. Let us assume that $r_i$ and $r_{i+1}$ are residual vectors for iterations $x_i$ and $x_{i+1}$ respectively. If for some $i$ we have   
+$||r_i|| < ||r_{i+1}||$ than calculations should be stopped and iteration $x_i$ has to be taken as solution.\\
+\indent Note also that \texttt{iterative\_refinement} function does not need any information about method of itration. Algorithm itself recognizes state of the matrix and applies proper algorithm.
+
+\section{Solving systems with complex numbers}
+
