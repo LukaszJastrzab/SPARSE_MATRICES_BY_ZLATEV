@@ -18,3 +18,21 @@
 
 *.pdf
 
+
+
+*.exe
+
+*.ilk
+
+*.pdb
+
+*.tlog
+
+*.log
+
+*.obj
+
+*.lastbuildstate
+
+*.idb
+

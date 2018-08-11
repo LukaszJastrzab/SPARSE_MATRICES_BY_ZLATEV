@@ -75,8 +75,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\sparse_matrices\sparse_main.cpp" />
-    <ClCompile Include="..\sparse_matrices\to_tex.cpp" />
-    <ClCompile Include="..\std_math\matrix_generators.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\sparse_matrices\input_matrices\input_matrix_1.txt" />

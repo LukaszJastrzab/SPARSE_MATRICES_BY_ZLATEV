@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <iostream>
-#include "../std_math/sparse_matrices.hpp"
+#include "../../sparse_matrices.hpp"
 
 int main()
 {
@@ -23,6 +23,8 @@ int main()
     // print schemes to console
     std::cout << ISS1;
     std::cout << ISS2;
+
+    system("pause");
 
     return 0;
 

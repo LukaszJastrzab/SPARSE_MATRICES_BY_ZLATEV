@@ -22,9 +22,6 @@
     <Filter Include="Resource Files\vectors">
       <UniqueIdentifier>{7aeab9f4-a1e8-42f9-803a-54a7e9a809a9}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\std_math">
-      <UniqueIdentifier>{4130ced8-5c01-4573-8c3e-a81b19b40a03}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Header Files\std_math">
       <UniqueIdentifier>{00bfa533-ca91-47b4-9568-02525145770e}</UniqueIdentifier>
     </Filter>
@@ -41,12 +38,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\sparse_matrices\to_tex.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\std_math\matrix_generators.cpp">
-      <Filter>Source Files\std_math</Filter>
-    </ClCompile>
     <ClCompile Include="..\sparse_matrices\sparse_main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

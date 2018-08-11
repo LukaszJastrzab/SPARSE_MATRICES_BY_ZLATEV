@@ -3,11 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual C++ Express 2010
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "sparse_matrices", "code\code.vcxproj", "{1991F9AE-0D8A-4BD5-BC2F-C4C5A85CECD8}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dense_matrices", "dense_matrices\dense_matrices.vcxproj", "{9DCC08C1-4448-4E64-A7B6-DA1E82017D7A}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "complex_matrices", "complex_matrices\complex_matrices.vcxproj", "{95D3C7A6-F4EA-44A2-AF30-1132D3ED5174}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test", "test\test.vcxproj", "{A346A5E4-9416-43B0-A890-1B434D320018}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,18 +15,10 @@ Global
 		{1991F9AE-0D8A-4BD5-BC2F-C4C5A85CECD8}.Debug|Win32.Build.0 = Debug|Win32
 		{1991F9AE-0D8A-4BD5-BC2F-C4C5A85CECD8}.Release|Win32.ActiveCfg = Release|Win32
 		{1991F9AE-0D8A-4BD5-BC2F-C4C5A85CECD8}.Release|Win32.Build.0 = Release|Win32
-		{9DCC08C1-4448-4E64-A7B6-DA1E82017D7A}.Debug|Win32.ActiveCfg = Debug|Win32
-		{9DCC08C1-4448-4E64-A7B6-DA1E82017D7A}.Debug|Win32.Build.0 = Debug|Win32
-		{9DCC08C1-4448-4E64-A7B6-DA1E82017D7A}.Release|Win32.ActiveCfg = Release|Win32
-		{9DCC08C1-4448-4E64-A7B6-DA1E82017D7A}.Release|Win32.Build.0 = Release|Win32
 		{95D3C7A6-F4EA-44A2-AF30-1132D3ED5174}.Debug|Win32.ActiveCfg = Debug|Win32
 		{95D3C7A6-F4EA-44A2-AF30-1132D3ED5174}.Debug|Win32.Build.0 = Debug|Win32
 		{95D3C7A6-F4EA-44A2-AF30-1132D3ED5174}.Release|Win32.ActiveCfg = Release|Win32
 		{95D3C7A6-F4EA-44A2-AF30-1132D3ED5174}.Release|Win32.Build.0 = Release|Win32
-		{A346A5E4-9416-43B0-A890-1B434D320018}.Debug|Win32.ActiveCfg = Debug|Win32
-		{A346A5E4-9416-43B0-A890-1B434D320018}.Debug|Win32.Build.0 = Debug|Win32
-		{A346A5E4-9416-43B0-A890-1B434D320018}.Release|Win32.ActiveCfg = Release|Win32
-		{A346A5E4-9416-43B0-A890-1B434D320018}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
