@@ -765,7 +765,7 @@ dynamic_state(_dynamic_state)
     }
     // Release everything if exception ocured
     // ======================================
-    catch (std::bad_alloc)
+    catch (std::bad_alloc& e)
     {
         delete[] ALU;
         delete[] CNLU;
@@ -777,7 +777,7 @@ dynamic_state(_dynamic_state)
         delete[] HA;
         delete[] rows_content_check;
         delete[] cols_content_check;
-        throw std::bad_alloc("dynamic_storage_scheme<TYPE>::dynamic_storage_scheme: bad_alloc");
+        throw e;
     }
     // ====================================
     // Few steps of optimal initialization 
