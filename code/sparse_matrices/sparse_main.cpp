@@ -26,7 +26,7 @@ int main()
         if (c == 't') {
             cout << "N:";
             cin >> N;
-            cout << "P/1000:";
+            cout << "P/10000:";
             cin >> P;
 
 			high_resolution_clock::time_point t1, t2;
@@ -38,7 +38,7 @@ int main()
                 ISS.add_element(static_cast<double>(rand()), i, i);
 			for (size_t row = 0; row < N; ++row)
 				for (size_t col = 0; col < N; ++col)
-					if (row != col && static_cast<size_t>(rand() % 1000) < P) {
+					if (row != col && static_cast<size_t>(rand() % 10000) < P) {
 						ISS.add_element(static_cast<double>(rand()), row, col);
 					}
 			t2 = high_resolution_clock::now();
@@ -48,6 +48,7 @@ int main()
 			t1 = high_resolution_clock::now();
 			dynamic_storage_scheme<double> DSS(ISS, 50);
 			t2 = high_resolution_clock::now();
+			
 			time_span = duration_cast<duration<double>>(t2 - t1);
 			cout << "DSS init: " << time_span.count() << "s\n";
 
