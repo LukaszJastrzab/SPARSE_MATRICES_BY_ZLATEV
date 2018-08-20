@@ -42,3 +42,9 @@ Debug
 
 *.sdf
 
+*.filters
+
+*.user
+
+*.opensdf
+
