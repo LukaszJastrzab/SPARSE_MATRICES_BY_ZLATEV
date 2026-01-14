@@ -22,21 +22,21 @@ FetchContent_MakeAvailable( googletest )
 
 enable_testing()
 
-add_library(sparse_matrices_lib
-    src/sparse_matrices.cpp
-    src/sparse_matrices.hpp
-)
-
 add_executable( ${PROJECT_NAME}
+    src/sparse_matrices.hpp
     tests/main.cpp
 )
 
 set( EXE_NAME ${PROJECT_NAME}.exe )
 
 target_link_libraries( ${PROJECT_NAME}
-    sparse_matrices_lib
     GTest::gtest
     GTest::gtest_main
+)
+
+target_include_directories( ${PROJECT_NAME}
+    PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
 )
 
 include( GoogleTest )
