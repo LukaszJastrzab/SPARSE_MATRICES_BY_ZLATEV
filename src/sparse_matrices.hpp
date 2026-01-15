@@ -8,6 +8,7 @@
 #include <string>
 #include <complex>
 #include <algorithm>
+#include <utility>
 
 
 //===============================================================================================//
@@ -140,11 +141,11 @@ private:
 	friend class dynamic_storage_scheme;
 
 	/// External test functions
-	template <typename TYPE2>
+	template <typename TYPE>
 	friend void permute_input_matrix_elements_test( input_storage_scheme<TYPE>* ISS );
 	/// 
-	template <typename TYPE2>
-	friend void CheckAxb( const input_storage_scheme<TYPE2>& ISS, const TYPE2* x, TYPE2* b );
+	template <typename TYPE>
+	friend void CheckAxb( const input_storage_scheme<TYPE>& ISS, const TYPE* x, TYPE* b );
 
 };
 //---------------------------------------------------------------------------- input_storage_scheme
@@ -449,6 +450,7 @@ void load_scheme_from_file( const char* file_name,
 //-------------------------------------------------------------------------------------------------
 /**
 *   Method random permuts elements of the input matrix
+*   Just to verify that order of the elements in input storage scheme does not make a difference
 *
 *  @param ISS -      input storage scheme to be tested
 */
@@ -458,23 +460,15 @@ void permute_input_matrix_elements_test( input_storage_scheme<TYPE>* ISS )
 {
 	srand( ( size_t )time( NULL ) );
 	const size_t N = ISS->NNZ;
-	TYPE2 val;
-	int row, col;
 
 	for( size_t idx1 = 0; idx1 < N; ++idx1 )
 		for( size_t idx2 = idx1 + 1; idx2 < N; ++idx2 )
 		{
 			if( rand() % 2 == 0 )
 			{
-				val = ISS->AORIG[ idx1 ];
-				row = ISS->RNORIG[ idx1 ];
-				col = ISS->CNORIG[ idx1 ];
-				ISS->AORIG[ idx1 ] = ISS->AORIG[ idx2 ];
-				ISS->RNORIG[ idx1 ] = ISS->RNORIG[ idx2 ];
-				ISS->CNORIG[ idx1 ] = ISS->CNORIG[ idx2 ];
-				ISS->AORIG[ idx2 ] = val;
-				ISS->RNORIG[ idx2 ] = row;
-				ISS->CNORIG[ idx2 ] = col;
+				std::swap( ISS->AORIG[ idx1 ], ISS->AORIG[ idx2 ] );
+				std::swap( ISS->RNORIG[ idx1 ], ISS->RNORIG[ idx2 ] );
+				std::swap( ISS->CNORIG[ idx1 ], ISS->CNORIG[ idx2 ] );
 			}
 		}
 }
@@ -487,8 +481,8 @@ void permute_input_matrix_elements_test( input_storage_scheme<TYPE>* ISS )
 *  @param b -        [out] result
 */
 //-------------------------------------------------------------------------------------------------
-template <typename TYPE2>
-void CheckAxb( const input_storage_scheme<TYPE2>& ISS, const TYPE2* x, TYPE2* b )
+template <typename TYPE>
+void CheckAxb( const input_storage_scheme<TYPE>& ISS, const TYPE* x, TYPE* b )
 {
 	for( size_t i = 0; i < ISS.number_of_rows; ++i )
 		b[ i ] = 0;
@@ -551,23 +545,23 @@ private:
 	const size_t order;
 
 	//============== Row-Ordered List (ROL) =============
-	size_t NROL;    /// size of row-ordered list (not number of stored elements)
-	size_t LROL;    /// last not free position in ROL
-	size_t CROL;    /// number of non-zeros actualy stored in ROL (calculated control)
-	TYPE* ALU;      /// array of values of the elements stored in scheme (indexed from 0)
-	int* CNLU;      /// array of column numbers of the elements stored in scheme (indexed from 0)
+	size_t NROL{ 0 };    /// size of row-ordered list (not number of stored elements)
+	size_t LROL{ 0 };    /// last not free position in ROL
+	size_t CROL{ 0 };    /// number of non-zeros actualy stored in ROL (calculated control)
+	TYPE* ALU{ NULL };   /// array of values of the elements stored in scheme (indexed from 0)
+	int* CNLU{ NULL };   /// array of column numbers of the elements stored in scheme (indexed from 0)
 
 	//=============== Column-Ordered List ===============
-	size_t NCOL;    /// size of column-ordered list (not number of stored elements)
-	size_t LCOL;    /// last not free position in COL
-	size_t CCOL;    /// number of non-zeros actualy stored in COL (calculated control)
-	int* RNLU;      /// array of row numbers of the elements stored in scheme (indexed from 0)
+	size_t NCOL{ 0 };    /// size of column-ordered list (not number of stored elements)
+	size_t LCOL{ 0 };    /// last not free position in COL
+	size_t CCOL{ 0 };    /// number of non-zeros actualy stored in COL (calculated control)
+	int* RNLU{ NULL };   /// array of row numbers of the elements stored in scheme (indexed from 0)
 
 	//============== INTEGRITY ARRAYS =============
-	size_t NHA;     /// size of integrity arrays
-	TYPE* PIVOT;    /// table of pivots
+	size_t NHA{ 0 };     /// size of integrity arrays
+	TYPE* PIVOT{ NULL }; /// table of pivots
 
-	int** HA; /// Array of pointers and permutations
+	int** HA{ NULL }; /// Array of pointers and permutations
 	/**
 		HA[i][0] - place to store working indexes during algorythmization
 
@@ -585,9 +579,9 @@ private:
 		HA[c][10] - number of column, where is placed c-th original column
 	*/
 
-	DYNAMIC_STATE dynamic_state;    /// variable indicating current state of the scheme
-	double omega;                   /// relaxation parameter for SOR method
-	std::string logged_errors;      /// output string log all errors and warnings obtained during the computation
+	DYNAMIC_STATE dynamic_state;		/// variable indicating current state of the scheme
+	double relaxation_parameter{ 1.0 }; /// relaxation parameter for SOR method
+	std::string logged_errors;			/// output string log all errors and warnings obtained during the computation
 
 
 public:
@@ -613,10 +607,7 @@ public:
 	/// Method prepares matrix to SOR iterations
 	void iterative_preparation( void );
 	/// Method sets relaxation parameter omega
-	void set_omega( double _omega )
-	{
-		omega = _omega;
-	}
+	void set_relaxation_parameter( double _relaxation_parameter );
 	/// Method performs one iteration of SOR method
 	void SOR_iteration( TYPE* x, TYPE* b, TYPE* prev_x ) const;
 
@@ -699,12 +690,6 @@ dynamic_storage_scheme( const input_storage_scheme<TYPE>& ISS,
 	number_of_rows( ISS.number_of_rows ),
 	number_of_columns( ISS.number_of_columns ),
 	order( ISS.number_of_rows < ISS.number_of_columns ? ISS.number_of_rows : ISS.number_of_columns ),
-	ALU( NULL ),
-	CNLU( NULL ),
-	RNLU( NULL ),
-	PIVOT( NULL ),
-	HA( NULL ),
-	omega( 1 ),
 	dynamic_state( _dynamic_state )
 {
 	if( dynamic_state != DYNAMIC_STATE::ROL_INIT && dynamic_state != DYNAMIC_STATE::COL_INIT )
@@ -1289,6 +1274,21 @@ void dynamic_storage_scheme<TYPE>::iterative_refinement( const input_storage_sch
 	delete[] y;
 }
 
+//--------------------------------------------------------------------------- set_relaxation_parameter
+/**
+*  Sets relaxation parameter used for SOR method
+*
+*  @throw exception     - when relaxation parameters is out of range (0, 2)
+*/
+//-------------------------------------------------------------------------------------------------
+template <typename TYPE>
+void dynamic_storage_scheme<TYPE>::set_relaxation_parameter( double _relaxation_parameter )
+{
+	if ( _relaxation_parameter <= 0.0 || _relaxation_parameter >= 2.0 )
+		throw std::exception( "dynamic_storage_scheme<TYPE>::set_relaxation_parameter: wrong parameter" );
+
+	relaxation_parameter = _relaxation_parameter;
+}
 
 //--------------------------------------------------------------------------- iterative_preparation
 /**
@@ -1300,7 +1300,7 @@ void dynamic_storage_scheme<TYPE>::iterative_refinement( const input_storage_sch
 template <typename TYPE>
 void dynamic_storage_scheme<TYPE>::iterative_preparation( void )
 {
-	if( dynamic_state != ROL_INIT )
+	if( dynamic_state != DYNAMIC_STATE::ROL_INIT )
 		throw std::exception( "dynamic_storage_scheme<TYPE>::iterative_preparation: ROL_INIT is required" );
 
 	for( size_t row = 0; row < number_of_rows; ++row )
@@ -1330,7 +1330,7 @@ void dynamic_storage_scheme<TYPE>::iterative_preparation( void )
 			throw std::exception( "iterative_preparation: diagonal element is equal to zero" );
 	}
 
-	dynamic_state = ITERATIVE;
+	dynamic_state = DYNAMIC_STATE::ITERATIVE;
 }
 
 //----------------------------------------------------------------------------------- SOR_iteration
@@ -1363,9 +1363,9 @@ void dynamic_storage_scheme<TYPE>::SOR_iteration( TYPE* x,
 			x[ row ] -= ( ALU[ idx ] * x[ CNLU[ idx ] ] );
 		for( ; idx <= HA[ row ][ 3 ]; ++idx )
 			x[ row ] -= ( ALU[ idx ] * prev_x[ CNLU[ idx ] ] );
-		x[ row ] *= omega;
+		x[ row ] *= relaxation_parameter;
 		x[ row ] /= PIVOT[ row ];
-		x[ row ] += ( 1 - omega ) * prev_x[ row ];
+		x[ row ] += ( 1 - relaxation_parameter ) * prev_x[ row ];
 	}
 }
 

@@ -42,7 +42,9 @@ input_storage_scheme<T> GenerateISS( size_t MxRows, size_t MxCols, bool nonSingu
 
 	std::shuffle( singularMxPermuts.begin(), singularMxPermuts.end(), g );
 
-	std::uniform_int_distribution<int> intRng( 0, nonSingularity );
+	// randomizers
+	// ===========
+	std::uniform_int_distribution<int> intRng( 0, zerosProportion );
 	std::uniform_real_distribution<double> elemRng( minVal, maxVal );
 
 	for( size_t row{ 0 }; row < MxRows; ++row )
@@ -51,9 +53,46 @@ input_storage_scheme<T> GenerateISS( size_t MxRows, size_t MxCols, bool nonSingu
 			if( ( intRng( g ) && ( nonSingularity || singularMxPermuts[ row ] != col ) ) ||
 				( nonSingularity && singularMxPermuts[ row ] == col ) )
 			{
-				double sign = ( boolRng( g ) ? -1.0 : 1.0 );
+				T sign = static_cast<T>( boolRng( g ) ? -1.0 : 1.0 );
 				EXPECT_NO_THROW( ISS.add_element( sign * elemRng( g ), row, col ) );
 			}
+
+	return ISS;
+}
+
+template <typename T>
+input_storage_scheme<T> GenerateISSWithStrongDiagonal( size_t MxRows, size_t MxCols, int zerosProportion, T minVal, T maxVal )
+{
+	if( minVal <= 0 || maxVal <= 0 || zerosProportion < 0 )
+		throw;
+
+	size_t MxMinSize = min( MxRows, MxCols );
+
+	input_storage_scheme<double> ISS( MxRows, MxCols );
+
+	// randomizers
+	// ===========
+	std::uniform_int_distribution<int> intRng( 0, zerosProportion );
+	std::uniform_real_distribution<double> elemRng( minVal, maxVal );
+
+	for( size_t col{ 0 }; col < MxCols; ++col )
+	{
+		T AbsSum{};
+
+		for( size_t row{ 0 }; row < MxRows; ++row )
+			if( row != col && intRng( g ) )
+			{
+				T sign = static_cast< T >( boolRng( g ) ? -1.0 : 1.0 );
+				T val = elemRng( g );
+				AbsSum += val;
+
+				EXPECT_NO_THROW( ISS.add_element( sign * val, row, col ) );
+			}
+
+		// ensure strong diagonal
+		// ======================
+		EXPECT_NO_THROW( ISS.add_element( AbsSum + 0.01, col, col ) );
+	}
 
 	return ISS;
 }
