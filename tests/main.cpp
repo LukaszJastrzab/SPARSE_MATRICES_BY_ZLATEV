@@ -1,59 +1,34 @@
 #include <gtest/gtest.h>
-#include <algorithm>
-#include <random>
 
 #include <sparse_matrices.hpp>
+#include <matrix_rand_generators.hpp>
 
 
 using namespace std;
 
-random_device rd;
-mt19937 g(rd());
 
-
-template <typename T>
-input_storage_scheme< T > GenerateISS(size_t MxRows, size_t MxCols, bool nonSingularity, int zerosProportion, T minVal, T maxVal)
+TEST( NonSingularLinearEquation, LU_decomposition )
 {
-    if (minVal <= 0 || maxVal <= 0 || zerosProportion < 0)
-        throw;
+	const size_t MxSize = 100;
 
-    size_t MxMinSize = min( MxRows, MxCols );
+	auto ISS = GenerateISS<double>( MxSize, MxSize, true, 1, 0.00001, 100000.0 );
 
-    input_storage_scheme< double > ISS( MxRows, MxCols );
+	unique_ptr< dynamic_storage_scheme<double> > DSS;
+	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme<double> >( ISS, 10, 0.8 ) );
+	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::MARKOWITZ_COST, 8, 5, numeric_limits<double>::min(), true ) );
 
-    vector< size_t > singularMxPermuts;
-    singularMxPermuts.reserve( MxMinSize );
-    for ( size_t idx{ 0 }; idx < MxMinSize; ++idx )
-        singularMxPermuts.push_back( idx );
+	// allocation of vectors
+	// =====================
+	vector<double> b( MxSize, 0.0 );
+	vector<double> x( MxSize, 0.0 );
 
-    shuffle( singularMxPermuts.begin(), singularMxPermuts.end(), g );
+	RandomVectorValues( &b, 0.00001, 10000.0 );
 
-    uniform_int_distribution< int > boolRng( 0, nonSingularity );
-    uniform_real_distribution< double > elemRng( minVal, maxVal );
-
-    for ( size_t row{ 0 }; row < MxRows; ++row )
-        for ( size_t col{ 0 }; col < MxCols; ++col )
-
-            if ( ( boolRng( g ) && ( nonSingularity || singularMxPermuts[row] != col ) ) ||
-                ( nonSingularity && singularMxPermuts[row] == col ) )
-            {
-                double sign = (boolRng(g) ? -1.0 : 1.0);
-                EXPECT_NO_THROW( ISS.add_element(sign * elemRng(g), row, col) );
-            }
-
-    return ISS;
-}
+	// solve equation to obtain first aproximation of the solution
+	// ===========================================================
+	EXPECT_NO_THROW( DSS->solve_LU( x.data(), b.data() ) );
+	EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x.data(), b.data(), 0.0000000000000000001, 20 ) );
 
 
-TEST( SampleTest, AlwaysPasse )
-{
-    const size_t MxSize = 100;
-
-    auto ISS = GenerateISS< double >( MxSize, MxSize, true, 1, 0.00001, 100000.0 );
-
-    unique_ptr< dynamic_storage_scheme< double > > DSS;
-    EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< double > >( ISS, 10, 0.8 ) );
-    EXPECT_NO_THROW( DSS->LU_decomposition( MARKOWITZ_COST, 8, 5, numeric_limits<double>::min(), true ) );
-
-    //EXPECT_EQ( 2 + 2, 4 );
+	//EXPECT_EQ( 2 + 2, 4 );
 }
