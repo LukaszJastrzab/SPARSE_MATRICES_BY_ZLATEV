@@ -1045,7 +1045,7 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 
 				// first find element in eliminated row which has the same column number as pivot and count eliminator
 				// ===================================================================================================
-				TYPE eliminator;
+				TYPE eliminator{ 1 };
 				for( int idx = HA[ eliminated_row ][ 2 ]; idx <= HA[ eliminated_row ][ 3 ]; ++idx )
 					if( CNLU[ idx ] == HA[ stage ][ 9 ] )
 					{
@@ -1326,7 +1326,7 @@ void dynamic_storage_scheme<TYPE>::iterative_preparation( void )
 				--idx;
 			}
 		}
-		if( PIVOT[ row ] == 0 )
+		if( PIVOT[ row ] == TYPE{ 0 } )
 			throw std::exception( "iterative_preparation: diagonal element is equal to zero" );
 	}
 
