@@ -122,7 +122,7 @@ public:
 	void add_element( TYPE value, size_t row, size_t col );
 
 	/// method counts residual vector r_i = Ax_i - b
-	void count_rasidual_vector( TYPE* x, TYPE* b, TYPE* r ) const;
+	void count_rasidual_vector( const TYPE* x, const TYPE* b, TYPE* r ) const;
 	/// assigned operator
 	input_storage_scheme<TYPE>& operator= ( input_storage_scheme<TYPE>& ISS );
 private:
@@ -204,8 +204,8 @@ void input_storage_scheme<TYPE>::add_element( TYPE value,
 */
 //-------------------------------------------------------------------------------------------------
 template <typename TYPE>
-void input_storage_scheme<TYPE>::count_rasidual_vector( TYPE* x,
-	TYPE* b,
+void input_storage_scheme<TYPE>::count_rasidual_vector( const TYPE* x,
+	const TYPE* b,
 	TYPE* r
 ) const
 {
@@ -603,13 +603,13 @@ public:
 	/// Method solves LU problem (LU_decomposition is needed to call before)
 	void solve_LU( TYPE* x, const TYPE* b, TYPE* y = NULL )const;
 	/// Method improves the accuracy of the solution
-	void iterative_refinement( const input_storage_scheme<TYPE>& ISS, TYPE* x, TYPE* b, double acc, size_t max_it ) const;
+	void iterative_refinement( const input_storage_scheme<TYPE>& ISS, TYPE* x, const TYPE* b, const double acc, const size_t max_it ) const;
 	/// Method prepares matrix to SOR iterations
 	void iterative_preparation( void );
 	/// Method sets relaxation parameter omega
 	void set_relaxation_parameter( double _relaxation_parameter );
 	/// Method performs one iteration of SOR method
-	void SOR_iteration( TYPE* x, TYPE* b, TYPE* prev_x ) const;
+	void SOR_iteration( TYPE* x, const TYPE* b, TYPE* prev_x ) const;
 
 
 	/// Method returns ostream with sparsity patern
@@ -1214,9 +1214,9 @@ void dynamic_storage_scheme<TYPE>::solve_LU( TYPE* x,
 template <typename TYPE>
 void dynamic_storage_scheme<TYPE>::iterative_refinement( const input_storage_scheme<TYPE>& ISS,
 	TYPE* x,
-	TYPE* b,
-	double acc,
-	size_t max_it
+	const TYPE* b,
+	const double acc,
+	const size_t max_it
 ) const
 {
 	if( number_of_columns != number_of_rows )
@@ -1346,7 +1346,7 @@ void dynamic_storage_scheme<TYPE>::iterative_preparation( void )
 //-------------------------------------------------------------------------------------------------
 template <typename TYPE>
 void dynamic_storage_scheme<TYPE>::SOR_iteration( TYPE* x,
-	TYPE* b,
+	const TYPE* b,
 	TYPE* prev_x
 ) const
 {
