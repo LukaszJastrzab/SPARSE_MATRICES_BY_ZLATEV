@@ -21,23 +21,6 @@
 */
 //===============================================================================================//
 
-
-template <typename T>
-double absolute_value( T number )
-{
-	return fabs( number );
-}
-template <>
-double absolute_value( std::complex<float> number )
-{
-	return sqrt( number.real() * number.real() + number.imag() * number.imag() );
-}
-template <>
-double absolute_value( std::complex<double> number )
-{
-	return sqrt( number.real() * number.real() + number.imag() * number.imag() );
-}
-
 //--------------------------------------------------------------------------- STANDARD VECTOR NORMS
 // Euklides vector norm
 // ====================
@@ -1021,7 +1004,7 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 			choose_pivot_by_FILLIN_MINIMALIZATION( stage, search, mult );
 			break;
 		}
-		if( absolute_value( PIVOT[ stage ] ) < eps )
+		if( std::abs( PIVOT[ stage ] ) < eps )
 			throw std::exception( "dynamic_storage_scheme<TYPE>::LU_decomposition: obtained singular matrix" );
 
 		const int eliminating_row = HA[ stage ][ 7 ];
@@ -1059,14 +1042,14 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 				for( int idx = HA[ eliminated_row ][ 2 ]; idx <= HA[ eliminated_row ][ 3 ]; ++idx )
 				{
 					const size_t IDX = HA[ CNLU[ idx ] ][ 10 ];
-					if( absolute_value( PIVOT[ IDX ] ) != 0 )
+					if( std::abs( PIVOT[ IDX ] ) != 0 )
 					{
 						ALU[ idx ] = ALU[ idx ] - eliminator * PIVOT[ IDX ];
 						PIVOT[ IDX ] = 0;
 
 						// if modified element is to small then eliminate it from COL and ROL
 						// ==================================================================
-						if( absolute_value( ALU[ idx ] ) <= eps )
+						if( std::abs( ALU[ idx ] ) <= eps )
 						{
 							const int eliminated_col = CNLU[ idx ];
 							for( int idxc = HA[ eliminated_col ][ 5 ]; idxc <= HA[ eliminated_col ][ 6 ]; ++idxc )
@@ -1087,7 +1070,7 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 				{
 					const size_t col_number = CNLU[ idx ];
 					TYPE fillin = -eliminator * PIVOT[ HA[ col_number ][ 10 ] ];
-					if( absolute_value( fillin ) > eps )
+					if( std::abs( fillin ) > eps )
 					{
 						if( store_fillin_ROL( fillin, eliminated_row, col_number ) == STORING_STATUS::STORING_FAIL )
 							throw std::exception( "dynamic_storage_scheme<TYPE>::LU_decomposition: not enough memory in ROL" );
@@ -1132,7 +1115,7 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 
 	// if last pivot is 0, it meens that matrix became singular
 	// ========================================================
-	if( absolute_value( PIVOT[ N ] ) == 0 )
+	if( std::abs( PIVOT[ N ] ) == 0 )
 		throw std::exception( "dynamic_storage_scheme<TYPE>::LU_decomposition: obtained singular matrix" );
 
 	dynamic_state = DYNAMIC_STATE::LU_DECOMPOSED;
@@ -1284,7 +1267,7 @@ void dynamic_storage_scheme<TYPE>::iterative_refinement( const input_storage_sch
 template <typename TYPE>
 void dynamic_storage_scheme<TYPE>::set_relaxation_parameter( double _relaxation_parameter )
 {
-	if ( _relaxation_parameter <= 0.0 || _relaxation_parameter >= 2.0 )
+	if( _relaxation_parameter <= 0.0 || _relaxation_parameter >= 2.0 )
 		throw std::exception( "dynamic_storage_scheme<TYPE>::set_relaxation_parameter: wrong parameter" );
 
 	relaxation_parameter = _relaxation_parameter;
@@ -1954,7 +1937,7 @@ void dynamic_storage_scheme<TYPE>::choose_pivot_by_ONE_ROW_SEARCHING( size_t sta
 	// =======================================================================
 	for( int idx = begin_row; idx <= end_row; idx++ )
 	{
-		const double abs_val = absolute_value( ALU[ idx ] );
+		const double abs_val = std::abs( ALU[ idx ] );
 		if( abs_val > max_val )
 		{
 			max_val = abs_val;
@@ -1975,7 +1958,7 @@ void dynamic_storage_scheme<TYPE>::choose_pivot_by_ONE_ROW_SEARCHING( size_t sta
 	// ==========================================
 	for( int idx = begin_row; idx <= end_row; idx++ )
 	{
-		const double abs_val = absolute_value( ALU[ idx ] );
+		const double abs_val = std::abs( ALU[ idx ] );
 		const int col = CNLU[ idx ];
 		const int min_colcost = HA[ col ][ 6 ] - HA[ col ][ 5 ];
 		if( abs_val * mult >= max_val && ( min_colcost < MIN_COLCOST || ( min_colcost == MIN_COLCOST && abs_val > ABS_VAL ) ) )
@@ -2035,7 +2018,7 @@ void dynamic_storage_scheme<TYPE>::choose_pivot_by_MARKOWITZ_COST( size_t stage,
 				logged_errors += "dynamic_storage_scheme<TYPE>::choose_pivot_by_MARKOWITZ_COST: some active row is empty\n";
 				return;
 			}
-			const double temp_abs_val = absolute_value( ALU[ idx ] );
+			const double temp_abs_val = std::abs( ALU[ idx ] );
 			if( temp_abs_val > max_val )
 			{
 				max_val = temp_abs_val;
@@ -2054,7 +2037,7 @@ void dynamic_storage_scheme<TYPE>::choose_pivot_by_MARKOWITZ_COST( size_t stage,
 		{
 			// if element meets the stability criterion then consider it as a pivot
 			// ====================================================================
-			const double temp_abs_val = absolute_value( ALU[ idx ] );
+			const double temp_abs_val = std::abs( ALU[ idx ] );
 			if( temp_abs_val * mult >= max_val )
 			{
 				// choose the best element in current row
@@ -2130,7 +2113,7 @@ void dynamic_storage_scheme<TYPE>::choose_pivot_by_FILLIN_MINIMALIZATION( size_t
 				logged_errors += "dynamic_storage_scheme<TYPE>::choose_pivot_by_FILLIN_MINIMALIZATION: some active row is empty\n";
 				return;
 			}
-			const double temp_abs_val = absolute_value( ALU[ idx ] );
+			const double temp_abs_val = std::abs( ALU[ idx ] );
 			if( temp_abs_val > max_val )
 			{
 				max_val = temp_abs_val;
@@ -2152,7 +2135,7 @@ void dynamic_storage_scheme<TYPE>::choose_pivot_by_FILLIN_MINIMALIZATION( size_t
 
 			// if element meets the stability criterion then consider it as a pivot
 			// ====================================================================
-			const double temp_abs_val = absolute_value( ALU[ idx ] );
+			const double temp_abs_val = std::abs( ALU[ idx ] );
 			if( temp_abs_val * mult >= max_val )
 			{
 				// choose the best element in current row
@@ -2609,7 +2592,7 @@ std::ostream& operator<<( std::ostream& out,
 						break;
 					}
 				}
-				if( !printed && row == col && absolute_value( DSS.PIVOT[ row ] ) != 0 )
+				if( !printed && row == col && std::abs( DSS.PIVOT[ row ] ) != 0 )
 					out << std::setw( manip_double ) << DSS.PIVOT[ row ];
 				else if( !printed )
 					out << std::setw( manip_double ) << 0;
