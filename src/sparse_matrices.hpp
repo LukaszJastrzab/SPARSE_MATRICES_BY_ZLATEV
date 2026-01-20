@@ -601,7 +601,7 @@ public:
 	/// Method used for decomposition of matrix (Gauss elimination)
 	void LU_decomposition( PIVOTAL_STRATEGY strategy, size_t _search, double _mult, double eps, bool pre_sort = false );
 	/// Method solves LU problem (LU_decomposition is needed to call before)
-	void solve_LU( TYPE* x, TYPE* b, TYPE* y = NULL )const;
+	void solve_LU( TYPE* x, const TYPE* b, TYPE* y = NULL )const;
 	/// Method improves the accuracy of the solution
 	void iterative_refinement( const input_storage_scheme<TYPE>& ISS, TYPE* x, TYPE* b, double acc, size_t max_it ) const;
 	/// Method prepares matrix to SOR iterations
@@ -1156,7 +1156,7 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 //------------------------------------------------------------------------------------------------------
 template <typename TYPE>
 void dynamic_storage_scheme<TYPE>::solve_LU( TYPE* x,
-	TYPE* b,
+	const TYPE* b,
 	TYPE* y
 ) const
 {
