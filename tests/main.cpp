@@ -13,7 +13,7 @@ TEST( non_singular_linear_equation_real, LU_decomposition_markowitz )
 
 	// Input Store Scheme
 	// ==================
-	auto ISS = generate_ISS<double>( mx_size, mx_size, true, 1, 0.00001, 100000.0 );
+	auto ISS = generate_ISS< double >( mx_size, mx_size, true, 1, 0.00001, 100000.0 );
 
 	// This function is redundant in computation
 	// here we wont to verify if order of adding elements to ISS make a difference
@@ -23,41 +23,41 @@ TEST( non_singular_linear_equation_real, LU_decomposition_markowitz )
 
 	// Dynamic Storage Scheme
 	// ======================
-	unique_ptr< dynamic_storage_scheme<double> > DSS;
+	unique_ptr< dynamic_storage_scheme< double > > DSS;
 
 	// Create dynamic scheme with some additional memmory for dinamic operations
 	// =========================================================================
-	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme<double> >( ISS, 10, 0.8 ) );
+	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< double > >( ISS, 10, 0.8 ) );
 
 	// Decompose matric to triangular (lower and uuper) factor L and U
 	// this is done using Gauss elimination with picotal strategy
 	// ===============================================================
-	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::MARKOWITZ_COST, mx_size, 1.0, numeric_limits<double>::min(), true ) );
+	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::MARKOWITZ_COST, mx_size, 1.0, numeric_limits< double >::min(), true ) );
 
 	// allocation of vectors of equation Ax = b
 	// ========================================
-	vector<double> b( mx_size, 0.0 );
-	vector<double> x( mx_size, 0.0 );
-	vector<double> r( mx_size, 0.0 ); // residual vector ( inaccuracy vector )
+	vector< double > b( mx_size, 0.0 );
+	vector< double > x( mx_size, 0.0 );
+	vector< double > r( mx_size, 0.0 ); // residual vector ( inaccuracy vector )
 
 	random_vector_values( &b, 0.00001, 10000.0 );
 
 	// solve equation to obtain first aproximation of the solution
 	// ===========================================================
-	EXPECT_NO_THROW( DSS->solve_LU( x.data(), b.data() ) );
+	EXPECT_NO_THROW( DSS->solve_LU( x, b ) );
 
 	// imporve the result by iterative refinemnt
 	// =========================================
-	EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x.data(), b.data(), numeric_limits<double>::min(), 1000 ) );
+	EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x, b, numeric_limits< double >::min(), 1000 ) );
 
 	// calculate residual vector, i.e. r = b - Ax ( in "on-paper" solution r should be zeros )
 	// =======================================================================================
-	EXPECT_NO_THROW( ISS.count_rasidual_vector( x.data(), b.data(), r.data() ) );
+	EXPECT_NO_THROW( ISS.count_rasidual_vector( x, b, r ) );
 
 	// calculate residual vector norm - to see the inaccuracy
 	// ======================================================
 	double norm{ 0.0 };
-	EXPECT_NO_THROW( norm = vector_norm( r.data(), r.size() ) );
+	EXPECT_NO_THROW( norm = vector_norm( r, r.size() ) );
 
 	// check inacurracy no some accuarcy level
 	// due to not big matrix we should gave even more precise result
@@ -72,7 +72,7 @@ TEST( non_singular_linear_equation_complex, LU_decomposition_markowitz )
 
 	// Input Store Scheme
 	// ==================
-	auto ISS = generate_ISS< complex<double> >( mx_size, mx_size, true, 1, 0.00001, 100000.0 );
+	auto ISS = generate_ISS< complex< double > >( mx_size, mx_size, true, 1, 0.00001, 100000.0 );
 
 	// This function is redundant in computation
 	// here we wont to verify if order of adding elements to ISS make a difference
@@ -82,41 +82,41 @@ TEST( non_singular_linear_equation_complex, LU_decomposition_markowitz )
 
 	// Dynamic Storage Scheme
 	// ======================
-	unique_ptr< dynamic_storage_scheme< complex<double> > > DSS;
+	unique_ptr< dynamic_storage_scheme< complex< double > > > DSS;
 
 	// Create dynamic scheme with some additional memmory for dinamic operations
 	// =========================================================================
-	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< complex<double> > >( ISS, 10, 0.8 ) );
+	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< complex< double > > >( ISS, 10, 0.8 ) );
 
 	// Decompose matric to triangular (lower and uuper) factor L and U
 	// this is done using Gauss elimination with picotal strategy
 	// ===============================================================
-	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::MARKOWITZ_COST, mx_size, 1.0, numeric_limits<double>::min(), true ) );
+	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::MARKOWITZ_COST, mx_size, 1.0, numeric_limits< double >::min(), true ) );
 
 	// allocation of vectors of equation Ax = b
 	// ========================================
-	vector< complex<double> > b( mx_size, complex <double>( 0.0 ) );
-	vector< complex<double> > x( mx_size, complex <double>( 0.0 ) );
-	vector< complex<double> > r( mx_size, complex <double>( 0.0 ) ); // residual vector ( inaccuracy vector )
+	vector< complex< double > > b( mx_size, complex < double >( 0.0 ) );
+	vector< complex< double > > x( mx_size, complex < double >( 0.0 ) );
+	vector< complex< double > > r( mx_size, complex < double >( 0.0 ) ); // residual vector ( inaccuracy vector )
 
-	random_vector_values( &b, complex <double>( 0.00001 ), complex <double>( 10000.0 ) );
+	random_vector_values( &b, complex < double >( 0.00001 ), complex < double >( 10000.0 ) );
 
 	// solve equation to obtain first aproximation of the solution
 	// ===========================================================
-	EXPECT_NO_THROW( DSS->solve_LU( x.data(), b.data() ) );
+	EXPECT_NO_THROW( DSS->solve_LU( x, b ) );
 
 	// imporve the result by iterative refinemnt
 	// =========================================
-	EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x.data(), b.data(), numeric_limits<double>::min(), 1000 ) );
+	EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x, b, numeric_limits< double >::min(), 1000 ) );
 
 	// calculate residual vector, i.e. r = b - Ax ( in "on-paper" solution r should be zeros )
 	// =======================================================================================
-	EXPECT_NO_THROW( ISS.count_rasidual_vector( x.data(), b.data(), r.data() ) );
+	EXPECT_NO_THROW( ISS.count_rasidual_vector( x, b, r ) );
 
 	// calculate residual vector norm - to see the inaccuracy
 	// ======================================================
 	double norm{ 0.0 };
-	EXPECT_NO_THROW( norm = vector_norm( r.data(), r.size() ) );
+	EXPECT_NO_THROW( norm = vector_norm( r, r.size() ) );
 
 	// check inacurracy no some accuarcy level
 	// due to not big matrix we should gave even more precise result
@@ -131,7 +131,7 @@ TEST( non_singular_linear_equation_real, LU_decomposition_fillin_min )
 
 	// Input Store Scheme
 	// ==================
-	auto ISS = generate_ISS<double>( mx_size, mx_size, true, 1, 0.00001, 100000.0 );
+	auto ISS = generate_ISS< double >( mx_size, mx_size, true, 1, 0.00001, 100000.0 );
 
 	// This function is redundant in computation
 	// here we wont to verify if order of adding elements to ISS make a difference
@@ -141,41 +141,41 @@ TEST( non_singular_linear_equation_real, LU_decomposition_fillin_min )
 
 	// Dynamic Storage Scheme
 	// ======================
-	unique_ptr< dynamic_storage_scheme<double> > DSS;
+	unique_ptr< dynamic_storage_scheme< double > > DSS;
 
 	// Create dynamic scheme with some additional memmory for dinamic operations
 	// =========================================================================
-	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme<double> >( ISS, 10, 0.8 ) );
+	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< double > >( ISS, 10, 0.8 ) );
 
 	// Decompose matric to triangular (lower and uuper) factor L and U
 	// this is done using Gauss elimination with picotal strategy
 	// ===============================================================
-	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, mx_size, 1.0, numeric_limits<double>::min(), true ) );
+	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, mx_size, 1.0, numeric_limits< double >::min(), true ) );
 
 	// allocation of vectors of equation Ax = b
 	// ========================================
-	vector<double> b( mx_size, 0.0 );
-	vector<double> x( mx_size, 0.0 );
-	vector<double> r( mx_size, 0.0 ); // residual vector ( inaccuracy vector )
+	vector< double > b( mx_size, 0.0 );
+	vector< double > x( mx_size, 0.0 );
+	vector< double > r( mx_size, 0.0 ); // residual vector ( inaccuracy vector )
 
 	random_vector_values( &b, 0.00001, 10000.0 );
 
 	// solve equation to obtain first aproximation of the solution
 	// ===========================================================
-	EXPECT_NO_THROW( DSS->solve_LU( x.data(), b.data() ) );
+	EXPECT_NO_THROW( DSS->solve_LU( x, b ) );
 
 	// imporve the result by iterative refinemnt
 	// =========================================
-	EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x.data(), b.data(), numeric_limits<double>::min(), 1000 ) );
+	EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x, b, numeric_limits< double >::min(), 1000 ) );
 
 	// calculate residual vector, i.e. r = b - Ax ( in "on-paper" solution r should be zeros )
 	// =======================================================================================
-	EXPECT_NO_THROW( ISS.count_rasidual_vector( x.data(), b.data(), r.data() ) );
+	EXPECT_NO_THROW( ISS.count_rasidual_vector( x, b, r ) );
 
 	// calculate residual vector norm - to see the inaccuracy
 	// ======================================================
 	double norm{ 0.0 };
-	EXPECT_NO_THROW( norm = vector_norm( r.data(), r.size() ) );
+	EXPECT_NO_THROW( norm = vector_norm( r, r.size() ) );
 
 	// check inacurracy no some accuarcy level
 	// due to not big matrix we should gave even more precise result
@@ -190,7 +190,7 @@ TEST( non_singular_linear_equation_complex, LU_decomposition_fillin_min )
 
 	// Input Store Scheme
 	// ==================
-	auto ISS = generate_ISS< complex<double> >( mx_size, mx_size, true, 1, 0.00001, 100000.0 );
+	auto ISS = generate_ISS< complex< double > >( mx_size, mx_size, true, 1, 0.00001, 100000.0 );
 
 	// This function is redundant in computation
 	// here we wont to verify if order of adding elements to ISS make a difference
@@ -200,41 +200,41 @@ TEST( non_singular_linear_equation_complex, LU_decomposition_fillin_min )
 
 	// Dynamic Storage Scheme
 	// ======================
-	unique_ptr< dynamic_storage_scheme< complex<double> > > DSS;
+	unique_ptr< dynamic_storage_scheme< complex< double > > > DSS;
 
 	// Create dynamic scheme with some additional memmory for dinamic operations
 	// =========================================================================
-	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< complex<double> > >( ISS, 10, 0.8 ) );
+	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< complex< double > > >( ISS, 10, 0.8 ) );
 
 	// Decompose matric to triangular (lower and uuper) factor L and U
 	// this is done using Gauss elimination with picotal strategy
 	// ===============================================================
-	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, mx_size, 1.0, numeric_limits<double>::min(), true ) );
+	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, mx_size, 1.0, numeric_limits< double >::min(), true ) );
 
 	// allocation of vectors of equation Ax = b
 	// ========================================
-	vector< complex<double> > b( mx_size, complex <double>( 0.0 ) );
-	vector< complex<double> > x( mx_size, complex <double>( 0.0 ) );
-	vector< complex<double> > r( mx_size, complex <double>( 0.0 ) ); // residual vector ( inaccuracy vector )
+	vector< complex< double > > b( mx_size, complex < double >( 0.0 ) );
+	vector< complex< double > > x( mx_size, complex < double >( 0.0 ) );
+	vector< complex< double > > r( mx_size, complex < double >( 0.0 ) ); // residual vector ( inaccuracy vector )
 
-	random_vector_values( &b, complex <double>( 0.00001 ), complex <double>( 10000.0 ) );
+	random_vector_values( &b, complex < double >( 0.00001 ), complex < double >( 10000.0 ) );
 
 	// solve equation to obtain first aproximation of the solution
 	// ===========================================================
-	EXPECT_NO_THROW( DSS->solve_LU( x.data(), b.data() ) );
+	EXPECT_NO_THROW( DSS->solve_LU( x, b ) );
 
 	// imporve the result by iterative refinemnt
 	// =========================================
-	EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x.data(), b.data(), numeric_limits<double>::min(), 1000 ) );
+	EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x, b, numeric_limits< double >::min(), 1000 ) );
 
 	// calculate residual vector, i.e. r = b - Ax ( in "on-paper" solution r should be zeros )
 	// =======================================================================================
-	EXPECT_NO_THROW( ISS.count_rasidual_vector( x.data(), b.data(), r.data() ) );
+	EXPECT_NO_THROW( ISS.count_rasidual_vector( x, b, r ) );
 
 	// calculate residual vector norm - to see the inaccuracy
 	// ======================================================
 	double norm{ 0.0 };
-	EXPECT_NO_THROW( norm = vector_norm( r.data(), r.size() ) );
+	EXPECT_NO_THROW( norm = vector_norm( r, r.size() ) );
 
 	// check inacurracy no some accuarcy level
 	// due to not big matrix we should gave even more precise result
@@ -249,7 +249,7 @@ TEST( non_singular_linear_equation_real, LU_decomposition_one_row_search )
 
 	// Input Store Scheme
 	// ==================
-	auto ISS = generate_ISS<double>( mx_size, mx_size, true, 1, 0.00001, 100000.0 );
+	auto ISS = generate_ISS< double >( mx_size, mx_size, true, 1, 0.00001, 100000.0 );
 
 	// This function is redundant in computation
 	// here we wont to verify if order of adding elements to ISS make a difference
@@ -259,41 +259,41 @@ TEST( non_singular_linear_equation_real, LU_decomposition_one_row_search )
 
 	// Dynamic Storage Scheme
 	// ======================
-	unique_ptr< dynamic_storage_scheme<double> > DSS;
+	unique_ptr< dynamic_storage_scheme< double > > DSS;
 
 	// Create dynamic scheme with some additional memmory for dinamic operations
 	// =========================================================================
-	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme<double> >( ISS, 10, 0.8 ) );
+	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< double > >( ISS, 10, 0.8 ) );
 
 	// Decompose matric to triangular (lower and uuper) factor L and U
 	// this is done using Gauss elimination with picotal strategy
 	// ===============================================================
-	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::ONE_ROW_SEARCHING, mx_size, 1.0, numeric_limits<double>::min(), true ) );
+	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::ONE_ROW_SEARCHING, mx_size, 1.0, numeric_limits< double >::min(), true ) );
 
 	// allocation of vectors of equation Ax = b
 	// ========================================
-	vector<double> b( mx_size, 0.0 );
-	vector<double> x( mx_size, 0.0 );
-	vector<double> r( mx_size, 0.0 ); // residual vector ( inaccuracy vector )
+	vector< double > b( mx_size, 0.0 );
+	vector< double > x( mx_size, 0.0 );
+	vector< double > r( mx_size, 0.0 ); // residual vector ( inaccuracy vector )
 
 	random_vector_values( &b, 0.00001, 10000.0 );
 
 	// solve equation to obtain first aproximation of the solution
 	// ===========================================================
-	EXPECT_NO_THROW( DSS->solve_LU( x.data(), b.data() ) );
+	EXPECT_NO_THROW( DSS->solve_LU( x, b ) );
 
 	// imporve the result by iterative refinemnt
 	// =========================================
-	EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x.data(), b.data(), numeric_limits<double>::min(), 1000 ) );
+	EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x, b, numeric_limits< double >::min(), 1000 ) );
 
 	// calculate residual vector, i.e. r = b - Ax ( in "on-paper" solution r should be zeros )
 	// =======================================================================================
-	EXPECT_NO_THROW( ISS.count_rasidual_vector( x.data(), b.data(), r.data() ) );
+	EXPECT_NO_THROW( ISS.count_rasidual_vector( x, b, r ) );
 
 	// calculate residual vector norm - to see the inaccuracy
 	// ======================================================
 	double norm{ 0.0 };
-	EXPECT_NO_THROW( norm = vector_norm( r.data(), r.size() ) );
+	EXPECT_NO_THROW( norm = vector_norm( r, r.size() ) );
 
 	// check inacurracy no some accuarcy level
 	// due to not big matrix we should gave even more precise result
@@ -308,7 +308,7 @@ TEST( non_singular_linear_equation_complex, LU_decomposition_one_row_search )
 
 	// Input Store Scheme
 	// ==================
-	auto ISS = generate_ISS< complex<double> >( mx_size, mx_size, true, 1, 0.00001, 100000.0 );
+	auto ISS = generate_ISS< complex< double > >( mx_size, mx_size, true, 1, 0.00001, 100000.0 );
 
 	// This function is redundant in computation
 	// here we wont to verify if order of adding elements to ISS make a difference
@@ -318,41 +318,41 @@ TEST( non_singular_linear_equation_complex, LU_decomposition_one_row_search )
 
 	// Dynamic Storage Scheme
 	// ======================
-	unique_ptr< dynamic_storage_scheme< complex<double> > > DSS;
+	unique_ptr< dynamic_storage_scheme< complex< double > > > DSS;
 
 	// Create dynamic scheme with some additional memmory for dinamic operations
 	// =========================================================================
-	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< complex<double> > >( ISS, 10, 0.8 ) );
+	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< complex< double > > >( ISS, 10, 0.8 ) );
 
 	// Decompose matric to triangular (lower and uuper) factor L and U
 	// this is done using Gauss elimination with picotal strategy
 	// ===============================================================
-	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::ONE_ROW_SEARCHING, mx_size, 1.0, numeric_limits<double>::min(), true ) );
+	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::ONE_ROW_SEARCHING, mx_size, 1.0, numeric_limits< double >::min(), true ) );
 
 	// allocation of vectors of equation Ax = b
 	// ========================================
-	vector< complex<double> > b( mx_size, complex <double>( 0.0 ) );
-	vector< complex<double> > x( mx_size, complex <double>( 0.0 ) );
-	vector< complex<double> > r( mx_size, complex <double>( 0.0 ) ); // residual vector ( inaccuracy vector )
+	vector< complex< double > > b( mx_size, complex < double >( 0.0 ) );
+	vector< complex< double > > x( mx_size, complex < double >( 0.0 ) );
+	vector< complex< double > > r( mx_size, complex < double >( 0.0 ) ); // residual vector ( inaccuracy vector )
 
-	random_vector_values( &b, complex <double>( 0.00001 ), complex <double>( 10000.0 ) );
+	random_vector_values( &b, complex < double >( 0.00001 ), complex < double >( 10000.0 ) );
 
 	// solve equation to obtain first aproximation of the solution
 	// ===========================================================
-	EXPECT_NO_THROW( DSS->solve_LU( x.data(), b.data() ) );
+	EXPECT_NO_THROW( DSS->solve_LU( x, b ) );
 
 	// imporve the result by iterative refinemnt
 	// =========================================
-	EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x.data(), b.data(), numeric_limits<double>::min(), 1000 ) );
+	EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x, b, numeric_limits< double >::min(), 1000 ) );
 
 	// calculate residual vector, i.e. r = b - Ax ( in "on-paper" solution r should be zeros )
 	// =======================================================================================
-	EXPECT_NO_THROW( ISS.count_rasidual_vector( x.data(), b.data(), r.data() ) );
+	EXPECT_NO_THROW( ISS.count_rasidual_vector( x, b, r ) );
 
 	// calculate residual vector norm - to see the inaccuracy
 	// ======================================================
 	double norm{ 0.0 };
-	EXPECT_NO_THROW( norm = vector_norm( r.data(), r.size() ) );
+	EXPECT_NO_THROW( norm = vector_norm( r, r.size() ) );
 
 	// check inacurracy no some accuarcy level
 	// due to not big matrix we should gave even more precise result
@@ -374,11 +374,11 @@ TEST( SOR_linear_equation_real, iterative_preparation )
 
 	// Dynamic Storage Scheme
 	// ======================
-	unique_ptr< dynamic_storage_scheme<double> > DSS;
+	unique_ptr< dynamic_storage_scheme< double > > DSS;
 
 	// Create dynamic scheme with no additional memorry as iterative method will be used
 	// =================================================================================
-	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme<double> >( ISS, 1, 1 ) );
+	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< double > >( ISS, 1, 1 ) );
 
 	// Set some relaxation parameter from range (0,2) 
 	// ==============================================
@@ -390,24 +390,24 @@ TEST( SOR_linear_equation_real, iterative_preparation )
 
 	// allocation of vectors of equation Ax = b
 	// ========================================
-	vector<double> b( mx_size, 0.0 );
-	vector<double> x( mx_size, 0.0 );
-	vector<double> r( mx_size, 0.0 ); // residual vector ( inaccuracy vector )
+	vector< double > b( mx_size, 0.0 );
+	vector< double > x( mx_size, 0.0 );
+	vector< double > r( mx_size, 0.0 ); // residual vector ( inaccuracy vector )
 
 	random_vector_values( &b, 0.00001, 10000.0 );
 
 	// imporve the result by iterative refinemnt
 	// =========================================
-	EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x.data(), b.data(), numeric_limits<double>::min(), 1000 ) );
+	EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x, b, numeric_limits< double >::min(), 1000 ) );
 
 	// calculate residual vector, i.e. r = b - Ax ( in "on-paper" solution r should be zeros )
 	// =======================================================================================
-	EXPECT_NO_THROW( ISS.count_rasidual_vector( x.data(), b.data(), r.data() ) );
+	EXPECT_NO_THROW( ISS.count_rasidual_vector( x, b, r ) );
 
 	// calculate residual vector norm - to see the inaccuracy
 	// ======================================================
 	double norm{ 0.0 };
-	EXPECT_NO_THROW( norm = vector_norm( r.data(), r.size() ) );
+	EXPECT_NO_THROW( norm = vector_norm( r, r.size() ) );
 
 	// check inacurracy no some accuarcy level
 	// due to not big matrix we should gave even more precise result
@@ -424,15 +424,15 @@ TEST( SOR_linear_equation_complex, iterative_preparation )
 	// |a_ii| = sum_j (|a_ij|)
 	// this will ensure SOR method convergence
 	// =================================================================
-	auto ISS = generate_ISS_with_strong_diagonal< complex<double> >( mx_size, mx_size, 1, 0.0001, 10000.0 );
+	auto ISS = generate_ISS_with_strong_diagonal< complex< double > >( mx_size, mx_size, 1, 0.0001, 10000.0 );
 
 	// Dynamic Storage Scheme
 	// ======================
-	unique_ptr< dynamic_storage_scheme< complex<double> > > DSS;
+	unique_ptr< dynamic_storage_scheme< complex< double > > > DSS;
 
 	// Create dynamic scheme with no additional memorry as iterative method will be used
 	// =================================================================================
-	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< complex<double> > >( ISS, 1, 1 ) );
+	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< complex< double > > >( ISS, 1, 1 ) );
 
 	// Set some relaxation parameter from range (0,2) 
 	// ==============================================
@@ -444,24 +444,24 @@ TEST( SOR_linear_equation_complex, iterative_preparation )
 
 	// allocation of vectors of equation Ax = b
 	// ========================================
-	vector< complex<double> > b( mx_size, complex <double>( 0.0 ) );
-	vector< complex<double> > x( mx_size, complex <double>( 0.0 ) );
-	vector< complex<double> > r( mx_size, complex <double>( 0.0 ) ); // residual vector ( inaccuracy vector )
+	vector< complex< double > > b( mx_size, complex < double >( 0.0 ) );
+	vector< complex< double > > x( mx_size, complex < double >( 0.0 ) );
+	vector< complex< double > > r( mx_size, complex < double >( 0.0 ) ); // residual vector ( inaccuracy vector )
 
-	random_vector_values( &b, complex<double>( 0.00001 ), complex<double>( 10000.0 ) );
+	random_vector_values( &b, complex< double >( 0.00001 ), complex< double >( 10000.0 ) );
 
 	// imporve the result by iterative refinemnt
 	// =========================================
-	EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x.data(), b.data(), numeric_limits<double>::min(), 1000 ) );
+	EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x, b, numeric_limits< double >::min(), 1000 ) );
 
 	// calculate residual vector, i.e. r = b - Ax ( in "on-paper" solution r should be zeros )
 	// =======================================================================================
-	EXPECT_NO_THROW( ISS.count_rasidual_vector( x.data(), b.data(), r.data() ) );
+	EXPECT_NO_THROW( ISS.count_rasidual_vector( x, b, r ) );
 
 	// calculate residual vector norm - to see the inaccuracy
 	// ======================================================
 	double norm{ 0.0 };
-	EXPECT_NO_THROW( norm = vector_norm( r.data(), r.size() ) );
+	EXPECT_NO_THROW( norm = vector_norm( r, r.size() ) );
 
 	// check inacurracy no some accuarcy level
 	// due to not big matrix we should gave even more precise result
