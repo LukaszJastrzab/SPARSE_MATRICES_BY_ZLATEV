@@ -24,35 +24,15 @@
 //--------------------------------------------------------------------------- STANDARD VECTOR NORMS
 // Euklides vector norm
 // ====================
-template < typename TYPE >
-double vector_norm( const std::vector< TYPE >& v,
-	size_t v_size
-)
+template< typename T >
+double l2_norm( const std::vector< T >& v )
 {
-	double result = 0;
-	for( size_t i = 0; i < v_size; ++i )
-		result += ( v[ i ] * v[ i ] );
-	return sqrt( result );
-}
-template <>
-double vector_norm( const std::vector< std::complex< float > >& v,
-	size_t v_size
-)
-{
-	double result = 0;
-	for( size_t i = 0; i < v_size; ++i )
-		result += static_cast< double >( v[ i ].real() ) * v[ i ].real() + static_cast< double >( v[ i ].imag() ) * v[ i ].imag();
-	return sqrt( result );
-}
-template <>
-double vector_norm( const std::vector< std::complex< double > >& v,
-	size_t v_size
-)
-{
-	double result = 0;
-	for( size_t i = 0; i < v_size; ++i )
-		result += v[ i ].real() * v[ i ].real() + v[ i ].imag() * v[ i ].imag();
-	return sqrt( result );
+	double sum{ 0.0 };
+
+	for( const auto& vi : v )
+		sum += norm( vi );
+
+	return std::sqrt( sum );
 }
 
 /*************************************************************************************************/
@@ -479,6 +459,7 @@ void CheckAxb( const input_storage_scheme< TYPE >& ISS, const std::vector< TYPE 
 // ===================================================
 enum class DYNAMIC_STATE : int
 {
+	NONE,
 	ROL_INIT,
 	COL_INIT,
 	ITERATIVE,
@@ -562,9 +543,9 @@ private:
 		HA[c][10] - number of column, where is placed c-th original column
 	*/
 
-	DYNAMIC_STATE dynamic_state;		/// variable indicating current state of the scheme
-	double relaxation_parameter{ 1.0 }; /// relaxation parameter for SOR method
-	std::string logged_errors;			/// output string log all errors and warnings obtained during the computation
+	DYNAMIC_STATE dynamic_state{ DYNAMIC_STATE::NONE };	/// variable indicating current state of the scheme
+	double relaxation_parameter{ 1.0 };					/// relaxation parameter for SOR method
+	std::string logged_errors;							/// output string log all errors and warnings obtained during the computation
 
 
 public:
@@ -573,7 +554,7 @@ public:
 	///               in flollowing way: NROL = mult1 * ISS->NNZ, NCOL = mult2 * NROL
 	dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS, double mult1, double mult2 = 0.7, DYNAMIC_STATE _dynamic_state = DYNAMIC_STATE::ROL_INIT );
 	/// Destructor
-	~dynamic_storage_scheme();
+	~dynamic_storage_scheme() = default;
 
 	/// Method gets string with logged warnings and errors
 	std::string get_logged_errors( void ) { return logged_errors; }
@@ -594,7 +575,9 @@ public:
 	/// Method performs one iteration of SOR method
 	void SOR_iteration( std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >& prev_x ) const;
 
-
+	/// ==================== FUNCTIONS WRITTEN ONLY FOR TESTS ====================
+	/// Method checks if there is not any mistakes in scheme structure
+	int check_integrity_test()const;
 	/// Method returns ostream with sparsity patern
 	void print_sparsity_pattern( const char* file_name );
 
@@ -642,12 +625,6 @@ private:
 	/// Definition of basic out_stream operator
 	template < typename TYPE2 >
 	friend std::ostream& operator<<( std::ostream& out, const dynamic_storage_scheme< TYPE2 >& DSS );
-
-
-	/// ==================== FUNCTIONS WRITTEN ONLY FOR TESTS ====================
-	/// Method checks if there is not any mistakes in scheme structure
-	int check_integrity_test( void )const;
-
 };
 
 
@@ -876,16 +853,6 @@ dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS,
 			HA[ col ][ 4 ] = HA[ col ][ 5 ] = FREE;
 			HA[ col ][ 6 ] = EMPTY;
 		}
-}
-
-//------------------------------------------------------------------------- ~dynamic_storage_scheme
-/**
-*  Deleting dynamic allocated (by operator new[]) memory
-*/
-//-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-dynamic_storage_scheme< TYPE >::~dynamic_storage_scheme( void )
-{
 }
 
 //---------------------------------------------------------------------------- print_scheme_to_file
@@ -1127,7 +1094,7 @@ void dynamic_storage_scheme< TYPE >::solve_LU( std::vector< TYPE >& x,
 	std::vector< TYPE > y_alloc;
 
 	if( y == NULL )
-	{ 
+	{
 		y_alloc.resize( N );
 		y = &y_alloc;
 	}
@@ -1191,7 +1158,7 @@ void dynamic_storage_scheme< TYPE >::iterative_refinement( const input_storage_s
 
 	size_t iteration = 0;
 	ISS.count_rasidual_vector( x, b, r );
-	double v_norm = vector_norm( r, N );
+	double v_norm = l2_norm( r );
 	double new_v_norm;
 
 	// int while condition are contained 2 conditins to stop the calculations,
@@ -1213,7 +1180,7 @@ void dynamic_storage_scheme< TYPE >::iterative_refinement( const input_storage_s
 		}
 
 		ISS.count_rasidual_vector( d, b, r );
-		new_v_norm = vector_norm( r, N );
+		new_v_norm = l2_norm( r );
 
 		// if norm of new residual vector is less then previous then accept new solution
 		// =============================================================================
@@ -1491,7 +1458,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 			}
 			// copy row package to further position
 			// ====================================
-			else if(( ( size_t )HA[ origRow ][ 3 ] - HA[ origRow ][ 1 ] + 2 ) <= ( NROL - LROL - 1 ) )
+			else if( ( ( size_t )HA[ origRow ][ 3 ] - HA[ origRow ][ 1 ] + 2 ) <= ( NROL - LROL - 1 ) )
 			{
 				int idx;
 				const int dist = LROL + 1 - HA[ origRow ][ 1 ];
@@ -2246,11 +2213,11 @@ int dynamic_storage_scheme< TYPE >::count_fillin_cost( size_t index,
 
 	return FCOST;
 }
-//---------------------------------------- FRIEND FUNCTIONS ---------------------------------------
 
 //-------------------------------------------------------------------------------------- operator<<
 /**
-*  Standard outstream operator
+*  Standard outstream operator is used for detailed printing scheme state
+*  It is very usefull function during developing any dynamic operation on matrix
 *
 *  @param out                   - [in/out] standard outstream object
 *  @param DSS                   - [in] dynamic storage scheme
@@ -2271,11 +2238,11 @@ std::ostream& operator<<( std::ostream& out,
 		<< "dynamic state        :";
 	switch( DSS.dynamic_state )
 	{
-	case ROL_INIT: out << "ROL_INIT\n\n"; break;
-	case COL_INIT: out << "COL_INIT\n\n"; break;
-	case ITERATIVE: out << "ITERATIVE\n\n"; break;
-	case LU_DECOMPOSED: out << "LU_DECOMPOSED\n\n"; break;
-	case QR_DECOMPOSED: out << "QR_DECOMPOSED\n\n"; break;
+	case DYNAMIC_STATE::ROL_INIT: out << "ROL_INIT\n\n"; break;
+	case DYNAMIC_STATE::COL_INIT: out << "COL_INIT\n\n"; break;
+	case DYNAMIC_STATE::ITERATIVE: out << "ITERATIVE\n\n"; break;
+	case DYNAMIC_STATE::LU_DECOMPOSED: out << "LU_DECOMPOSED\n\n"; break;
+	case DYNAMIC_STATE::QR_DECOMPOSED: out << "QR_DECOMPOSED\n\n"; break;
 	}
 
 	out << "PIVOT: [PIVOT[idx],idx]" << std::endl;
@@ -2593,12 +2560,11 @@ std::ostream& operator<<( std::ostream& out,
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-int dynamic_storage_scheme< TYPE >::check_integrity_test( void ) const
+int dynamic_storage_scheme< TYPE >::check_integrity_test() const
 {
 	int a, b, c;
 	int ret_val = 0;
-
-	cout << "\n=== Checking dynamic_storage_scheme ===\n";
+	stringstream out;
 
 	//------------------- ROW ORDERED LIST CHECKING -------------------
 	// row ordered list checking
@@ -2615,7 +2581,7 @@ int dynamic_storage_scheme< TYPE >::check_integrity_test( void ) const
 	}
 	if( a + c != NROL )
 	{
-		cout << "memory error in ROL: " << b << " pbits" << std::endl;
+		out << "memory error in ROL: " << b << " pbits" << std::endl;
 		ret_val = 2;
 	}
 
@@ -2626,7 +2592,7 @@ int dynamic_storage_scheme< TYPE >::check_integrity_test( void ) const
 		if( HA[ row ][ 1 ] > HA[ row ][ 2 ] || HA[ row ][ 1 ] > HA[ row ][ 3 ] )
 			if( HA[ row ][ 1 ] >= 0 && HA[ row ][ 1 ] < ( int )NROL && CNLU[ HA[ row ][ 1 ] ] != FREE )
 			{
-				cout << "ROL integrity error: row " << row << " should be empty or begin set to FREE" << std::endl;
+				out << "ROL integrity error: row " << row << " should be empty or begin set to FREE" << std::endl;
 				ret_val = 2;
 			}
 
@@ -2634,18 +2600,18 @@ int dynamic_storage_scheme< TYPE >::check_integrity_test( void ) const
 		{
 			if( idx <= FREE )
 			{
-				cout << "ROL warning: row " << row << " is empty" << std::endl;
+				out << "ROL warning: row " << row << " is empty" << std::endl;
 				ret_val = 1;
 				if( HA[ row ][ 1 ] != FREE || HA[ row ][ 2 ] != FREE || HA[ row ][ 3 ] != EMPTY )
 				{
-					cout << "ROL error: 1, 2 and 3 pointers of row " << row << " should be set to FREE or EMPTY" << std::endl;
+					out << "ROL error: 1, 2 and 3 pointers of row " << row << " should be set to FREE or EMPTY" << std::endl;
 					ret_val = 2;
 					break;
 				}
 			}
-			else if( CNLU[ idx ] < 0 || ALU[ idx ] == 0 )
+			else if( CNLU[ idx ] < 0 || ALU[ idx ] == TYPE{ 0 } )
 			{
-				cout << "ROL integrity lack error in row " << row << std::endl;
+				out << "ROL integrity lack error in row " << row << std::endl;
 				ret_val = 2;
 			}
 		}
@@ -2666,7 +2632,7 @@ int dynamic_storage_scheme< TYPE >::check_integrity_test( void ) const
 	}
 	if( a + c != NCOL )
 	{
-		cout << "memory error in COL: " << b << " pbits" << std::endl;
+		out << "memory error in COL: " << b << " pbits" << std::endl;
 		ret_val = 2;
 	}
 
@@ -2677,7 +2643,7 @@ int dynamic_storage_scheme< TYPE >::check_integrity_test( void ) const
 		if( HA[ col ][ 4 ] > HA[ col ][ 5 ] || HA[ col ][ 4 ] > HA[ col ][ 6 ] )
 			if( HA[ col ][ 4 ] != FREE )
 			{
-				cout << "COL integrity error: col " << col << " should be empty or begin set to FREE" << std::endl;
+				out << "COL integrity error: col " << col << " should be empty or begin set to FREE" << std::endl;
 				ret_val = 2;
 			}
 
@@ -2685,18 +2651,18 @@ int dynamic_storage_scheme< TYPE >::check_integrity_test( void ) const
 		{
 			if( idx <= FREE )
 			{
-				cout << "COL warning: column " << col << " is empty" << std::endl;
+				out << "COL warning: column " << col << " is empty" << std::endl;
 				ret_val = 1;
 				if( HA[ col ][ 4 ] != FREE || HA[ col ][ 5 ] != FREE || HA[ col ][ 6 ] != EMPTY )
 				{
-					cout << "COL error: 4, 5 and 6 pointers of column " << col << " should be set to FREE or EMPTY" << std::endl;
+					out << "COL error: 4, 5 and 6 pointers of column " << col << " should be set to FREE or EMPTY" << std::endl;
 					ret_val = 2;
 					break;
 				}
 			}
 			if( RNLU[ idx ] < 0 )
 			{
-				cout << "COL integrity lack error in col " << col << std::endl;
+				out << "COL integrity lack error in col " << col << std::endl;
 				ret_val = 2;
 			}
 		}
@@ -2707,13 +2673,13 @@ int dynamic_storage_scheme< TYPE >::check_integrity_test( void ) const
 	for( size_t row = 0; row < number_of_rows; row++ )
 		if( HA[ HA[ row ][ 7 ] ][ 8 ] != row || HA[ HA[ row ][ 8 ] ][ 7 ] != row )
 		{
-			cout << "permutations error row: " << row << std::endl;
+			out << "permutations error row: " << row << std::endl;
 			ret_val = 2;
 		}
 	for( size_t col = 0; col < number_of_columns; col++ )
 		if( HA[ HA[ col ][ 9 ] ][ 10 ] != col || HA[ HA[ col ][ 10 ] ][ 9 ] != col )
 		{
-			cout << "permutations error row: " << col << std::endl;
+			out << "permutations error row: " << col << std::endl;
 			ret_val = 2;
 		}
 
@@ -2732,7 +2698,7 @@ int dynamic_storage_scheme< TYPE >::check_integrity_test( void ) const
 				}
 			if( !checked )
 			{
-				cout << "ROL error: element: " << idx << " doesn't belong to any row package" << std::endl;
+				out << "ROL error: element: " << idx << " doesn't belong to any row package" << std::endl;
 				ret_val = 2;
 			}
 		}
@@ -2748,13 +2714,13 @@ int dynamic_storage_scheme< TYPE >::check_integrity_test( void ) const
 				}
 			if( !checked )
 			{
-				cout << "ROL error: empty element: " << idx << " belongs to row: " << row << std::endl;
+				out << "ROL error: empty element: " << idx << " belongs to row: " << row << std::endl;
 				ret_val = 2;
 			}
 		}
 		else
 		{
-			cout << "ROL error: invalid value in CNLU: index = " << idx << std::endl;
+			out << "ROL error: invalid value in CNLU: index = " << idx << std::endl;
 			ret_val = 2;
 		}
 	}
@@ -2774,7 +2740,7 @@ int dynamic_storage_scheme< TYPE >::check_integrity_test( void ) const
 				}
 			if( !checked )
 			{
-				cout << "COL error: element: " << idx << " doesn't belong to any column package" << std::endl;
+				out << "COL error: element: " << idx << " doesn't belong to any column package" << std::endl;
 				ret_val = 2;
 			}
 		}
@@ -2790,29 +2756,19 @@ int dynamic_storage_scheme< TYPE >::check_integrity_test( void ) const
 				}
 			if( !checked )
 			{
-				cout << "COL error: empty element: " << idx << " belongs to column: " << col << std::endl;
+				out << "COL error: empty element: " << idx << " belongs to column: " << col << std::endl;
 				ret_val = 2;
 			}
 		}
 		else
 		{
-			cout << "COL error: invalid value in RNLU: index = " << idx << std::endl;
+			out << "COL error: invalid value in RNLU: index = " << idx << std::endl;
 			ret_val = 2;
 		}
 	}
 
-	int* check_tab = NULL;
-	try
-	{
-		check_tab = new int[ NHA ];
-	} catch( std::bad_alloc )
-	{
-		delete[] check_tab;
-		cout << "warning: some data can not be checked becouse of bad_alloc:check_tab exception" << std::endl;
-		ret_val = 1;
-		cout << "=== dynamic_storage_scheme checked ===" << std::endl;
-		return ret_val;
-	}
+	std::vector< int > check_tab( NHA );
+
 	// check duplication elements in row packages in ROL
 	// =================================================
 	for( size_t row = 0; row < number_of_rows; row++ )
@@ -2828,12 +2784,12 @@ int dynamic_storage_scheme< TYPE >::check_integrity_test( void ) const
 				check_tab[ col ] = FREE;
 			else if( col >= 0 && col < ( int )number_of_columns && check_tab[ col ] == FREE )
 			{
-				cout << "ROL error: duplicate element: column: " << col << " in original row: " << row << std::endl;
+				out << "ROL error: duplicate element: column: " << col << " in original row: " << row << std::endl;
 				ret_val = 2;
 			}
 			else
 			{
-				cout << "ROL error: range error ocured or wrong column number in row: " << row << std::endl;
+				out << "ROL error: range error ocured or wrong column number in row: " << row << std::endl;
 				ret_val = 2;
 			}
 		}
@@ -2853,20 +2809,16 @@ int dynamic_storage_scheme< TYPE >::check_integrity_test( void ) const
 				check_tab[ row ] = FREE;
 			else if( row >= 0 && row < ( int )number_of_columns && check_tab[ row ] == FREE )
 			{
-				cout << "COL error: duplicate element: row: " << row << " in original column: " << col << std::endl;
+				out << "COL error: duplicate element: row: " << row << " in original column: " << col << std::endl;
 				ret_val = 2;
 			}
 			else
 			{
-				cout << "ROL error: range error ocured or wrong row number in column: " << col << std::endl;
+				out << "ROL error: range error ocured or wrong row number in column: " << col << std::endl;
 				ret_val = 2;
 			}
 		}
 	}
-
-	delete[] check_tab;
-
-	cout << "=== dynamic_storage_scheme checked ===" << std::endl;
 
 	return ret_val;
 }

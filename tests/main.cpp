@@ -34,6 +34,11 @@ TEST( non_singular_linear_equation_real, LU_decomposition_markowitz )
 	// ===============================================================
 	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::MARKOWITZ_COST, mx_size, 1.0, numeric_limits< double >::min(), true ) );
 
+	// test if LU_decomposition keeps the rules of handling with dynamic_scheme
+	// just for test purposes
+	//==========================================
+	EXPECT_EQ( DSS->check_integrity_test(), 0 );
+
 	// allocation of vectors of equation Ax = b
 	// ========================================
 	vector< double > b( mx_size, 0.0 );
@@ -56,8 +61,7 @@ TEST( non_singular_linear_equation_real, LU_decomposition_markowitz )
 
 	// calculate residual vector norm - to see the inaccuracy
 	// ======================================================
-	double norm{ 0.0 };
-	EXPECT_NO_THROW( norm = vector_norm( r, r.size() ) );
+	double norm = l2_norm( r );
 
 	// check inacurracy no some accuarcy level
 	// due to not big matrix we should gave even more precise result
@@ -93,6 +97,11 @@ TEST( non_singular_linear_equation_complex, LU_decomposition_markowitz )
 	// ===============================================================
 	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::MARKOWITZ_COST, mx_size, 1.0, numeric_limits< double >::min(), true ) );
 
+	// test if LU_decomposition keeps the rules of handling with dynamic_scheme
+	// just for test purposes
+	//==========================================
+	EXPECT_EQ( DSS->check_integrity_test(), 0 );
+
 	// allocation of vectors of equation Ax = b
 	// ========================================
 	vector< complex< double > > b( mx_size, complex < double >( 0.0 ) );
@@ -115,8 +124,7 @@ TEST( non_singular_linear_equation_complex, LU_decomposition_markowitz )
 
 	// calculate residual vector norm - to see the inaccuracy
 	// ======================================================
-	double norm{ 0.0 };
-	EXPECT_NO_THROW( norm = vector_norm( r, r.size() ) );
+	double norm = l2_norm( r );
 
 	// check inacurracy no some accuarcy level
 	// due to not big matrix we should gave even more precise result
@@ -152,6 +160,11 @@ TEST( non_singular_linear_equation_real, LU_decomposition_fillin_min )
 	// ===============================================================
 	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, mx_size, 1.0, numeric_limits< double >::min(), true ) );
 
+	// test if LU_decomposition keeps the rules of handling with dynamic_scheme
+	// just for test purposes
+	//==========================================
+	EXPECT_EQ( DSS->check_integrity_test(), 0 );
+
 	// allocation of vectors of equation Ax = b
 	// ========================================
 	vector< double > b( mx_size, 0.0 );
@@ -174,8 +187,7 @@ TEST( non_singular_linear_equation_real, LU_decomposition_fillin_min )
 
 	// calculate residual vector norm - to see the inaccuracy
 	// ======================================================
-	double norm{ 0.0 };
-	EXPECT_NO_THROW( norm = vector_norm( r, r.size() ) );
+	double norm = l2_norm( r );
 
 	// check inacurracy no some accuarcy level
 	// due to not big matrix we should gave even more precise result
@@ -211,6 +223,11 @@ TEST( non_singular_linear_equation_complex, LU_decomposition_fillin_min )
 	// ===============================================================
 	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, mx_size, 1.0, numeric_limits< double >::min(), true ) );
 
+	// test if LU_decomposition keeps the rules of handling with dynamic_scheme
+	// just for test purposes
+	//==========================================
+	EXPECT_EQ( DSS->check_integrity_test(), 0 );
+
 	// allocation of vectors of equation Ax = b
 	// ========================================
 	vector< complex< double > > b( mx_size, complex < double >( 0.0 ) );
@@ -233,8 +250,7 @@ TEST( non_singular_linear_equation_complex, LU_decomposition_fillin_min )
 
 	// calculate residual vector norm - to see the inaccuracy
 	// ======================================================
-	double norm{ 0.0 };
-	EXPECT_NO_THROW( norm = vector_norm( r, r.size() ) );
+	double norm = l2_norm( r );
 
 	// check inacurracy no some accuarcy level
 	// due to not big matrix we should gave even more precise result
@@ -270,6 +286,11 @@ TEST( non_singular_linear_equation_real, LU_decomposition_one_row_search )
 	// ===============================================================
 	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::ONE_ROW_SEARCHING, mx_size, 1.0, numeric_limits< double >::min(), true ) );
 
+	// test if LU_decomposition keeps the rules of handling with dynamic_scheme
+	// just for test purposes
+	//==========================================
+	EXPECT_EQ( DSS->check_integrity_test(), 0 );
+
 	// allocation of vectors of equation Ax = b
 	// ========================================
 	vector< double > b( mx_size, 0.0 );
@@ -292,8 +313,7 @@ TEST( non_singular_linear_equation_real, LU_decomposition_one_row_search )
 
 	// calculate residual vector norm - to see the inaccuracy
 	// ======================================================
-	double norm{ 0.0 };
-	EXPECT_NO_THROW( norm = vector_norm( r, r.size() ) );
+	double norm = l2_norm( r );
 
 	// check inacurracy no some accuarcy level
 	// due to not big matrix we should gave even more precise result
@@ -329,6 +349,11 @@ TEST( non_singular_linear_equation_complex, LU_decomposition_one_row_search )
 	// ===============================================================
 	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::ONE_ROW_SEARCHING, mx_size, 1.0, numeric_limits< double >::min(), true ) );
 
+	// test if LU_decomposition keeps the rules of handling with dynamic_scheme
+	// just for test purposes
+	//==========================================
+	EXPECT_EQ( DSS->check_integrity_test(), 0 );
+
 	// allocation of vectors of equation Ax = b
 	// ========================================
 	vector< complex< double > > b( mx_size, complex < double >( 0.0 ) );
@@ -351,8 +376,7 @@ TEST( non_singular_linear_equation_complex, LU_decomposition_one_row_search )
 
 	// calculate residual vector norm - to see the inaccuracy
 	// ======================================================
-	double norm{ 0.0 };
-	EXPECT_NO_THROW( norm = vector_norm( r, r.size() ) );
+	double norm = l2_norm( r );
 
 	// check inacurracy no some accuarcy level
 	// due to not big matrix we should gave even more precise result
@@ -388,6 +412,11 @@ TEST( SOR_linear_equation_real, iterative_preparation )
 	// =====================================================================================
 	EXPECT_NO_THROW( DSS->iterative_preparation() );
 
+	// test if iterative_preparation keeps the rules of handling with dynamic_scheme
+	// just for test purposes
+	//==========================================
+	EXPECT_EQ( DSS->check_integrity_test(), 0 );
+
 	// allocation of vectors of equation Ax = b
 	// ========================================
 	vector< double > b( mx_size, 0.0 );
@@ -406,8 +435,7 @@ TEST( SOR_linear_equation_real, iterative_preparation )
 
 	// calculate residual vector norm - to see the inaccuracy
 	// ======================================================
-	double norm{ 0.0 };
-	EXPECT_NO_THROW( norm = vector_norm( r, r.size() ) );
+	double norm = l2_norm( r );
 
 	// check inacurracy no some accuarcy level
 	// due to not big matrix we should gave even more precise result
@@ -442,6 +470,11 @@ TEST( SOR_linear_equation_complex, iterative_preparation )
 	// =====================================================================================
 	EXPECT_NO_THROW( DSS->iterative_preparation() );
 
+	// test if iterative_preparation keeps the rules of handling with dynamic_scheme
+	// just for test purposes
+	//==========================================
+	EXPECT_EQ( DSS->check_integrity_test(), 0 );
+
 	// allocation of vectors of equation Ax = b
 	// ========================================
 	vector< complex< double > > b( mx_size, complex < double >( 0.0 ) );
@@ -460,8 +493,7 @@ TEST( SOR_linear_equation_complex, iterative_preparation )
 
 	// calculate residual vector norm - to see the inaccuracy
 	// ======================================================
-	double norm{ 0.0 };
-	EXPECT_NO_THROW( norm = vector_norm( r, r.size() ) );
+	double norm = l2_norm( r );
 
 	// check inacurracy no some accuarcy level
 	// due to not big matrix we should gave even more precise result
