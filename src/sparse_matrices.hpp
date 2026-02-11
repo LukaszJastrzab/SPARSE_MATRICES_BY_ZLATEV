@@ -2316,7 +2316,7 @@ std::ostream& operator<<( std::ostream& out,
 	// Print stored in ROL values, their column numbers and positions in ROL
 	// =====================================================================
 	out << std::endl << "(original row number, its current position):";
-	if( DSS.dynamic_state != COL_INIT )
+	if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
 		out << "[ALU,CNLU,idx],..." << std::endl;
 	else
 		out << "[CNLU,idx],..." << std::endl;
@@ -2327,7 +2327,7 @@ std::ostream& operator<<( std::ostream& out,
 			continue;
 		for( int idx = DSS.HA[ DSS.HA[ row ][ 7 ] ][ 1 ]; idx <= DSS.HA[ DSS.HA[ row ][ 7 ] ][ 3 ]; idx++ )
 		{
-			if( DSS.dynamic_state != COL_INIT )
+			if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
 				out << "[" << std::setw( manip_double ) << DSS.ALU[ idx ] << "," << std::setw( manip_int ) << DSS.CNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
 			else
 				out << "[" << std::setw( manip_int ) << DSS.CNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
@@ -2429,13 +2429,13 @@ std::ostream& operator<<( std::ostream& out,
 	// Print stored in COL values and positions in COL
 	// ===============================================
 	out << std::endl << "(original column number, its current position):";
-	if( DSS.dynamic_state != COL_INIT )
+	if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
 		out << "[RNLU,idx],..." << std::endl;
 	else
 		out << "[ALU,RNLU,idx],..." << std::endl;
 	for( size_t col = 0; col < DSS.number_of_columns; col++ )
 	{
-		if( DSS.dynamic_state != COL_INIT )
+		if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
 			out << "(" << std::setw( manip_int ) << DSS.HA[ col ][ 9 ] << "," << std::setw( manip_int ) << col << ")";
 		else
 		{
@@ -2460,14 +2460,14 @@ std::ostream& operator<<( std::ostream& out,
 			if( idx <= DSS.HA[ DSS.HA[ col ][ 9 ] ][ 6 ] )
 			{
 				print = true;
-				if( DSS.dynamic_state != COL_INIT )
+				if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
 					out << "[" << std::setw( manip_int ) << DSS.RNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
 				else
 					out << "[" << std::setw( manip_double ) << DSS.ALU[ idx ] << "," << std::setw( manip_int ) << DSS.RNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
 			}
 			else
 			{
-				if( DSS.dynamic_state != COL_INIT )
+				if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
 					out << std::setw( 2 * manip_int + 3 ) << " ";
 				else
 					out << std::setw( manip_double + 2 * manip_int + 4 ) << " ";
@@ -2501,7 +2501,7 @@ std::ostream& operator<<( std::ostream& out,
 		out << std::setw( manip_int ) << DSS.HA[ col ][ 0 ];
 
 	out << std::endl << std::endl << "\\============================ MATRIX RECONSTRUCTION ============================";
-	if( DSS.dynamic_state != COL_INIT )
+	if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
 	{
 		for( size_t row = 0; row < DSS.number_of_rows; row++ )
 		{

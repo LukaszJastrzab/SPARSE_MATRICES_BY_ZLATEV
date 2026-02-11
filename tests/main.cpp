@@ -500,3 +500,22 @@ TEST( SOR_linear_equation_complex, iterative_preparation )
 	// =============================================================
 	EXPECT_TRUE( norm >= 0 && norm < 0.00000001 );
 }
+
+TEST( PrintScheme, real_matrix )
+{
+	const size_t mx_size = 20;
+
+	auto ISS = generate_ISS_with_strong_diagonal( mx_size, mx_size, 1, 0.0001, 10000.0 );
+
+	unique_ptr< dynamic_storage_scheme< double > > DSS;
+
+	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< double > >( ISS, 1, 1 ) );
+
+	std::ofstream file( "PrintScheme_real_matrix.txt" );
+
+	EXPECT_TRUE( file );
+
+	EXPECT_NO_THROW( file << *DSS );
+
+	file.close();
+}
