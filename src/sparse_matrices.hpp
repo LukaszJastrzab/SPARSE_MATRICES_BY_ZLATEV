@@ -1276,7 +1276,7 @@ void dynamic_storage_scheme< TYPE >::SOR_iteration( std::vector< TYPE >& x,
 			x[ row ] -= ( ALU[ idx ] * prev_x[ CNLU[ idx ] ] );
 		x[ row ] *= relaxation_parameter;
 		x[ row ] /= PIVOT[ row ];
-		x[ row ] += ( 1 - relaxation_parameter ) * prev_x[ row ];
+		x[ row ] += ( static_cast< TYPE >( 1 )  - static_cast< TYPE >( relaxation_parameter ) ) * prev_x[ row ];
 	}
 }
 
