@@ -1734,12 +1734,9 @@ inline void dynamic_storage_scheme< TYPE >::deactivate_element_in_ROL( size_t in
 	size_t row
 )
 {
-	TYPE val = ALU[ index ];
-	ALU[ index ] = ALU[ HA[ row ][ 2 ] ];
-	ALU[ HA[ row ][ 2 ] ] = val;
-	size_t col = CNLU[ index ];
-	CNLU[ index ] = CNLU[ HA[ row ][ 2 ] ];
-	CNLU[ HA[ row ][ 2 ] ] = col;
+	std::swap( ALU[ index ], ALU[ HA[ row ][ 2 ] ] );
+	std::swap( CNLU[ index ], CNLU[ HA[ row ][ 2 ] ] );
+
 	HA[ row ][ 2 ]++;
 }
 //------------------------------------------------------------------------ eliminate_element_in_ROL
