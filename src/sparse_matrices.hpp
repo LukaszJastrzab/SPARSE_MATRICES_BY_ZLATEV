@@ -144,7 +144,7 @@ void input_storage_scheme< TYPE >::add_element( TYPE value,
 	const_cast< size_t& >( NNZ )++;
 }
 
-//--------------------------------------------------------------------------- count_rasidual_vector
+//--------------------------------------------------------------------------- count_rasidual_vector,  
 /**
 *  Method used to counting residual vector
 *
@@ -1354,10 +1354,7 @@ inline void dynamic_storage_scheme< TYPE >::permute_rows( size_t pos1,
 	HA[ HA[ pos1 ][ 7 ] ][ 8 ] = pos2;
 	HA[ HA[ pos2 ][ 7 ] ][ 8 ] = pos1;
 
-	int val;
-	val = HA[ pos1 ][ 7 ];
-	HA[ pos1 ][ 7 ] = HA[ pos2 ][ 7 ];
-	HA[ pos2 ][ 7 ] = val;
+	std::swap( HA[ pos1 ][ 7 ], HA[ pos2 ][ 7 ] );
 }
 
 //--------------------------------------------------------------------------------- permute_columns
@@ -1382,10 +1379,7 @@ inline void dynamic_storage_scheme< TYPE >::permute_columns( size_t pos1,
 	HA[ HA[ pos1 ][ 9 ] ][ 10 ] = pos2;
 	HA[ HA[ pos2 ][ 9 ] ][ 10 ] = pos1;
 
-	int val;
-	val = HA[ pos1 ][ 9 ];
-	HA[ pos1 ][ 9 ] = HA[ pos2 ][ 9 ];
-	HA[ pos2 ][ 9 ] = val;
+	std::swap( HA[ pos1 ][ 9 ], HA[ pos2 ][ 9 ] );
 }
 
 //-------------------------------------------------------------------------------- store_fillin_ROL
