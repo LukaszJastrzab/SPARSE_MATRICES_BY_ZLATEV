@@ -9,6 +9,7 @@
 #include <complex>
 #include <algorithm>
 #include <utility>
+#include <map>
 
 #include <utilities.cuh>
 
@@ -605,6 +606,8 @@ private:
 
 	/// Quick sort method for sorting rows
 	void sort_rows( int l = 0, int r = 0 );
+	/// rows aproximated minimal degree
+	void sort_rows_ROWAMD();
 	/// Method counts the fillin cost in assumption that specified element was choosen as a pivot
 	int count_fillin_cost( size_t index, size_t row );
 
@@ -914,6 +917,10 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 
 	if( pre_sort || strategy == PIVOTAL_STRATEGY::ONE_ROW_SEARCHING )
 		sort_rows();
+
+	// test
+	sort_rows_ROWAMD();
+	// test
 
 	// main loop, over all stages of elimination
 	// =========================================
@@ -2129,6 +2136,72 @@ void dynamic_storage_scheme< TYPE >::sort_rows( int l,
 		sort_rows( i, r );
 }
 
+//--------------------------------------------------------------------------------------- sort_rows
+/**
+*  performs row sorting by key that is aproximated minimal degree
+*  it reduces fillins by simulating it arises during elimation
+*  and choosing potentially minimal fillin cost
+*/
+//-------------------------------------------------------------------------------------------------
+template < typename TYPE >
+void dynamic_storage_scheme< TYPE >::sort_rows_ROWAMD()
+{
+	if( dynamic_state != DYNAMIC_STATE::ROL_INIT )
+		throw std::invalid_argument( " dynamic_storage_scheme< TYPE >::sort_rows_ROWAMD - ROL_INIT state reqired" );
+
+	std::map< int, std::map< int, bool > > row_connections;
+
+	for( int r{ 0 }; r < static_cast< int >( number_of_rows ); ++r )
+		row_connections[ r ] = std::map< int, bool>();
+
+	for( int r{ 0 }; r < static_cast< int >( number_of_rows ); ++r )
+	{
+		std::map< int, bool > r_cols;
+
+		for( int c{ HA[ r ][ 1 ] }; c <= HA[ r ][ 3 ]; ++c )
+			r_cols[ CNLU[ c ] ] = true;
+
+		for( int rn{ r + 1 }; rn < static_cast< int >( number_of_rows ); ++rn )
+			for( int cn{ HA[ rn ][ 1 ] }; cn <= HA[ rn ][ 3 ]; ++cn )
+				if( r_cols.find( CNLU[ cn ] ) != r_cols.end() )
+				{
+					row_connections[ r ][ rn ] = true;
+					row_connections[ rn ][ r ] = true;
+				}
+	}
+
+	for( int r{ 0 }; r < static_cast< int >( number_of_rows ) - 1; ++r )
+	{
+		int R{ HA[ r ][ 7 ] };
+		auto min_degree{ row_connections[ R ].size() };
+		int r_min{ r };
+
+		for( int rn{ r + 1 }; rn < static_cast< int >( number_of_rows ); ++rn )
+		{
+			int RN{ HA[ rn ][ 7 ] };
+			auto n_min_degree{ row_connections[ RN ].size() };
+
+			if( n_min_degree < min_degree )
+			{
+				min_degree = n_min_degree;
+				r_min = rn;
+			}
+		}
+
+		permute_rows( r, r_min );
+
+		R = HA[ r ][ 7 ];
+		for( const auto& [ c, val ]  : row_connections[ R ] )
+		{
+			row_connections[ c ].erase( R );
+			for( const auto& [ cn, val ] : row_connections[ R ] )
+				if( cn != c )
+					row_connections[ c ][ cn ] = true;
+		}
+
+		row_connections.erase( R );
+	}
+}
 
 //------------------------------------------------------------------------------- count_fillin_cost
 /**

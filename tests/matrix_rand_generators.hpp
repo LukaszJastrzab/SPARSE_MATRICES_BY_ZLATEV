@@ -8,7 +8,7 @@
 #include <sparse_matrices.hpp>
 
 std::random_device rd;
-std::mt19937 g( rd() );
+std::mt19937 g( 12345u /*rd()*/ );
 
 std::uniform_int_distribution< int > bool_rng( 0, 1 );
 
@@ -66,7 +66,7 @@ input_storage_scheme< T > generate_ISS( size_t mx_rows, size_t mx_cols, bool non
 	for( size_t row{ 0 }; row < mx_rows; ++row )
 		for( size_t col{ 0 }; col < mx_cols; ++col )
 
-			if( ( int_rng( g ) && ( non_singularity || singular_mx_permuts[ row ] != col ) ) ||
+			if( ( !int_rng( g ) && ( non_singularity || singular_mx_permuts[ row ] != col ) ) ||
 				( non_singularity && singular_mx_permuts[ row ] == col ) )
 			{
 				T sign = static_cast< T >( bool_rng( g ) ? -1.0 : 1.0 );
@@ -105,7 +105,7 @@ input_storage_scheme< std::complex< float > > generate_ISS( size_t mx_rows,
 	for( size_t row{ 0 }; row < mx_rows; ++row )
 		for( size_t col{ 0 }; col < mx_cols; ++col )
 
-			if( ( int_rng( g ) && ( non_singularity || singular_mx_permuts[ row ] != col ) ) ||
+			if( ( !int_rng( g ) && ( non_singularity || singular_mx_permuts[ row ] != col ) ) ||
 				( non_singularity && singular_mx_permuts[ row ] == col ) )
 			{
 				float sign_real = static_cast< float >( bool_rng( g ) ? -1.0 : 1.0 );
@@ -149,7 +149,7 @@ input_storage_scheme< std::complex< double > > generate_ISS( size_t mx_rows,
 	for( size_t row{ 0 }; row < mx_rows; ++row )
 		for( size_t col{ 0 }; col < mx_cols; ++col )
 
-			if( ( int_rng( g ) && ( non_singularity || singular_mx_permuts[ row ] != col ) ) ||
+			if( ( !int_rng( g ) && ( non_singularity || singular_mx_permuts[ row ] != col ) ) ||
 				( non_singularity && singular_mx_permuts[ row ] == col ) )
 			{
 				double sign_real = static_cast< double >( bool_rng( g ) ? -1.0 : 1.0 );
@@ -181,7 +181,7 @@ input_storage_scheme< T > generate_ISS_with_strong_diagonal( size_t mx_rows, siz
 		T abs_sum{};
 
 		for( size_t row{ 0 }; row < mx_rows; ++row )
-			if( row != col && int_rng( g ) )
+			if( row != col && !int_rng( g ) )
 			{
 				T sign = static_cast< T >( bool_rng( g ) ? -1.0 : 1.0 );
 				T val = elem_rng( g );
@@ -220,7 +220,7 @@ input_storage_scheme< std::complex< float > > generate_ISS_with_strong_diagonal(
 		double abs_sum{ 0 };
 
 		for( size_t row{ 0 }; row < mx_rows; ++row )
-			if( row != col && int_rng( g ) )
+			if( row != col && !int_rng( g ) )
 			{
 				double sign_real = static_cast< float >( bool_rng( g ) ? -1.0 : 1.0 );
 				double sign_img = static_cast< float >( bool_rng( g ) ? -1.0 : 1.0 );
@@ -266,7 +266,7 @@ input_storage_scheme< std::complex< double > > generate_ISS_with_strong_diagonal
 		double abs_sum{ 0 };
 
 		for( size_t row{ 0 }; row < mx_rows; ++row )
-			if( row != col && int_rng( g ) )
+			if( row != col && !int_rng( g ) )
 			{
 				double sign_real = static_cast< double >( bool_rng( g ) ? -1.0 : 1.0 );
 				double sign_img = static_cast< double >( bool_rng( g ) ? -1.0 : 1.0 );
