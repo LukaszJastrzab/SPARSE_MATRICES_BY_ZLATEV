@@ -12,11 +12,11 @@ constexpr double eps_double{ 1e-10 };
 
 TEST( non_singular_linear_equation_real_float, LU_decomposition_markowitz )
 {
-	const size_t mx_size = 50;
+	const size_t mx_size = 100;
 
 	// Input Store Scheme
 	// ==================
-	auto ISS = generate_ISS< float >( mx_size, mx_size, true, 5, 0.01f, 100.0f );
+	auto ISS = generate_ISS< float >( mx_size, mx_size, true, 15, 0.01f, 100.0f );
 
 	// This function is redundant in computation
 	// here we wont to verify if order of adding elements to ISS make a difference
@@ -73,11 +73,11 @@ TEST( non_singular_linear_equation_real_float, LU_decomposition_markowitz )
 
 TEST( non_singular_linear_equation_real_double, LU_decomposition_markowitz )
 {
-	const size_t mx_size = 50;
+	const size_t mx_size = 100;
 
 	// Input Store Scheme
 	// ==================
-	auto ISS = generate_ISS< double >( mx_size, mx_size, true, 1, 0.00001, 100000.0 );
+	auto ISS = generate_ISS< double >( mx_size, mx_size, true, 15, 0.00001, 100000.0 );
 
 	// This function is redundant in computation
 	// here we wont to verify if order of adding elements to ISS make a difference
@@ -130,11 +130,11 @@ TEST( non_singular_linear_equation_real_double, LU_decomposition_markowitz )
 
 TEST( non_singular_linear_equation_complex_float, LU_decomposition_markowitz )
 {
-	const size_t mx_size = 50;
+	const size_t mx_size = 100;
 
 	// Input Store Scheme
 	// ==================
-	auto ISS = generate_ISS< complex< float > >( mx_size, mx_size, true, 1, 0.01f, 100.0f );
+	auto ISS = generate_ISS< complex< float > >( mx_size, mx_size, true, 15, 0.01f, 100.0f );
 
 	// This function is redundant in computation
 	// here we wont to verify if order of adding elements to ISS make a difference
@@ -187,11 +187,11 @@ TEST( non_singular_linear_equation_complex_float, LU_decomposition_markowitz )
 
 TEST( non_singular_linear_equation_complex_double, LU_decomposition_markowitz )
 {
-	const size_t mx_size = 50;
+	const size_t mx_size = 100;
 
 	// Input Store Scheme
 	// ==================
-	auto ISS = generate_ISS< complex< double > >( mx_size, mx_size, true, 1, 0.00001, 100000.0 );
+	auto ISS = generate_ISS< complex< double > >( mx_size, mx_size, true, 15, 0.00001, 100000.0 );
 
 	// This function is redundant in computation
 	// here we wont to verify if order of adding elements to ISS make a difference
@@ -244,11 +244,11 @@ TEST( non_singular_linear_equation_complex_double, LU_decomposition_markowitz )
 
 TEST( non_singular_linear_equation_real_float, LU_decomposition_fillin_min )
 {
-	const size_t mx_size = 50;
+	const size_t mx_size = 100;
 
 	// Input Store Scheme
 	// ==================
-	auto ISS = generate_ISS< float >( mx_size, mx_size, true, 1, 0.01f, 100.0f );
+	auto ISS = generate_ISS< float >( mx_size, mx_size, true, 15, 0.01f, 100.0f );
 
 	// This function is redundant in computation
 	// here we wont to verify if order of adding elements to ISS make a difference
@@ -301,11 +301,11 @@ TEST( non_singular_linear_equation_real_float, LU_decomposition_fillin_min )
 
 TEST( non_singular_linear_equation_real_double, LU_decomposition_fillin_min )
 {
-	const size_t mx_size = 50;
+	const size_t mx_size = 100;
 
 	// Input Store Scheme
 	// ==================
-	auto ISS = generate_ISS< double >( mx_size, mx_size, true, 1, 0.00001, 100000.0 );
+	auto ISS = generate_ISS< double >( mx_size, mx_size, true, 15, 0.00001, 100000.0 );
 
 	// This function is redundant in computation
 	// here we wont to verify if order of adding elements to ISS make a difference
@@ -358,11 +358,11 @@ TEST( non_singular_linear_equation_real_double, LU_decomposition_fillin_min )
 
 TEST( non_singular_linear_equation_complex_float, LU_decomposition_fillin_min )
 {
-	const size_t mx_size = 50;
+	const size_t mx_size = 100;
 
 	// Input Store Scheme
 	// ==================
-	auto ISS = generate_ISS< complex< float > >( mx_size, mx_size, true, 1, 0.01, 100.0 );
+	auto ISS = generate_ISS< complex< float > >( mx_size, mx_size, true, 15, 0.01, 100.0 );
 
 	// This function is redundant in computation
 	// here we wont to verify if order of adding elements to ISS make a difference
@@ -415,11 +415,11 @@ TEST( non_singular_linear_equation_complex_float, LU_decomposition_fillin_min )
 
 TEST( non_singular_linear_equation_complex_double, LU_decomposition_fillin_min )
 {
-	const size_t mx_size = 50;
+	const size_t mx_size = 100;
 
 	// Input Store Scheme
 	// ==================
-	auto ISS = generate_ISS< complex< double > >( mx_size, mx_size, true, 1, 0.00001, 100000.0 );
+	auto ISS = generate_ISS< complex< double > >( mx_size, mx_size, true, 15, 0.00001, 100000.0 );
 
 	// This function is redundant in computation
 	// here we wont to verify if order of adding elements to ISS make a difference
@@ -472,14 +472,14 @@ TEST( non_singular_linear_equation_complex_double, LU_decomposition_fillin_min )
 
 TEST( SOR_linear_equation_real_float, iterative_preparation )
 {
-	const size_t mx_size = 50;
+	const size_t mx_size = 100;
 
 	// as SOR method is not alwas convergent
 	// thus we will create matrix with strong diagonal domination in row
 	// |a_ii| = sum_j (|a_ij|)
 	// this will ensure SOR method convergence
 	// =================================================================
-	auto ISS = generate_ISS_with_strong_diagonal( mx_size, mx_size, 1, 0.01f, 100.0f );
+	auto ISS = generate_ISS_with_strong_diagonal( mx_size, mx_size, 15, 0.01f, 100.0f );
 
 	// Dynamic Storage Scheme
 	// ======================
@@ -525,14 +525,14 @@ TEST( SOR_linear_equation_real_float, iterative_preparation )
 
 TEST( SOR_linear_equation_real_double, iterative_preparation )
 {
-	const size_t mx_size = 50;
+	const size_t mx_size = 100;
 
 	// as SOR method is not alwas convergent
 	// thus we will create matrix with strong diagonal domination in row
 	// |a_ii| = sum_j (|a_ij|)
 	// this will ensure SOR method convergence
 	// =================================================================
-	auto ISS = generate_ISS_with_strong_diagonal(mx_size, mx_size, 1, 0.0001, 10000.0 );
+	auto ISS = generate_ISS_with_strong_diagonal(mx_size, mx_size, 15, 0.0001, 10000.0 );
 
 	// Dynamic Storage Scheme
 	// ======================
@@ -578,14 +578,14 @@ TEST( SOR_linear_equation_real_double, iterative_preparation )
 
 TEST( SOR_linear_equation_complex_float, iterative_preparation )
 {
-	const size_t mx_size = 50;
+	const size_t mx_size = 100;
 
 	// as SOR method is not alwas convergent
 	// thus we will create matrix with strong diagonal domination in row
 	// |a_ii| = sum_j (|a_ij|)
 	// this will ensure SOR method convergence
 	// =================================================================
-	auto ISS = generate_ISS_with_strong_diagonal< complex< float > >( mx_size, mx_size, 1, 0.01f, 100.0f );
+	auto ISS = generate_ISS_with_strong_diagonal< complex< float > >( mx_size, mx_size, 15, 0.01f, 100.0f );
 
 	// Dynamic Storage Scheme
 	// ======================
@@ -631,14 +631,14 @@ TEST( SOR_linear_equation_complex_float, iterative_preparation )
 
 TEST( SOR_linear_equation_complex_double, iterative_preparation )
 {
-	const size_t mx_size = 50;
+	const size_t mx_size = 100;
 
 	// as SOR method is not alwas convergent
 	// thus we will create matrix with strong diagonal domination in row
 	// |a_ii| = sum_j (|a_ij|)
 	// this will ensure SOR method convergence
 	// =================================================================
-	auto ISS = generate_ISS_with_strong_diagonal< complex< double > >( mx_size, mx_size, 1, 0.0001, 10000.0 );
+	auto ISS = generate_ISS_with_strong_diagonal< complex< double > >( mx_size, mx_size, 15, 0.0001, 10000.0 );
 
 	// Dynamic Storage Scheme
 	// ======================
@@ -686,7 +686,7 @@ TEST( PrintScheme_double, real_matrix )
 {
 	const size_t mx_size = 20;
 
-	auto ISS = generate_ISS_with_strong_diagonal( mx_size, mx_size, 1, 0.0001, 10000.0 );
+	auto ISS = generate_ISS_with_strong_diagonal( mx_size, mx_size, 5, 0.0001, 10000.0 );
 
 	unique_ptr< dynamic_storage_scheme< double > > DSS;
 
