@@ -455,11 +455,19 @@ enum class DYNAMIC_STATE : int
 	QR_DECOMPOSED
 };
 
+// lead dimention preparation before decompositions
+// ================================================
+enum class LD_PREPARATION : int
+{
+	NONE,
+	SORT,
+	AMD
+};
+
 // Type definition for using pivotal strategy
 // ==========================================
 enum class PIVOTAL_STRATEGY : int
 {
-	ONE_ROW_SEARCHING,
 	MARKOWITZ_COST,
 	FILLIN_MINIMALIZATION
 };
@@ -551,7 +559,7 @@ public:
 	/// Method to dump the contents of the schema
 	void print_scheme_to_file( const char* file_name );
 	/// Method used for decomposition of matrix (Gauss elimination)
-	void LU_decomposition( PIVOTAL_STRATEGY strategy, size_t _search, double _mult, double eps, bool pre_sort = false );
+	void LU_decomposition( PIVOTAL_STRATEGY strategy, size_t _search, double _mult, double eps, LD_PREPARATION pre_sort = LD_PREPARATION::NONE );
 	/// Method solves LU problem (LU_decomposition is needed to call before)
 	void solve_LU( std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >* y = NULL )const;
 	/// Method improves the accuracy of the solution
@@ -601,8 +609,6 @@ private:
 	void choose_pivot_by_ONE_ROW_SEARCHING( size_t stage, double mult );
 	/// Strategy based on Markowitz cost function
 	void choose_pivot_by_MARKOWITZ_COST( size_t stage, size_t search, double mult );
-	/// Strategy based on local minimalization of arising fillins
-	void choose_pivot_by_FILLIN_MINIMALIZATION( size_t stage, size_t search, double mult );
 
 	/// Quick sort method for sorting rows
 	void sort_rows( int l = 0, int r = 0 );
@@ -888,10 +894,8 @@ void dynamic_storage_scheme< TYPE >::print_scheme_to_file( const char* file_name
 *  @param mult                         - [in] stability parameter for choosing pivot
 *  @param eps                          - [in] parameter used for deleting to small elements,
 *                                        or not storing to small fillins, that meets (fabs <  eps)
-*  @param pre_sort - (default = false) - [in] flag indicating if pre row sorting should be performed,
-*                                        default it will be performed only if ONE_ROW_SEARCHING
-*                                        strategy is in use
-*
+*  @param pre_sort - (default = NONE) - [in] flag indicating if pre row sorting / aprox min degree
+*                                        should be performed
 *  @throw exception                    - when matrix is not square, singular or there is not
 *                                        enough memory in ROL/COL
 */
@@ -902,7 +906,7 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 	size_t _search,
 	double _mult,
 	double eps,
-	bool pre_sort
+	LD_PREPARATION pre_sort
 )
 {
 	if( dynamic_state != DYNAMIC_STATE::ROL_INIT )
@@ -911,16 +915,14 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 	if( number_of_columns != number_of_rows )
 		throw std::exception( "dynamic_storage_scheme< TYPE >::LU_decomposition: matrix is not squared" );
 
-	const double mult = ( _mult > 1 ? _mult : 1 );
-	const size_t search = ( strategy == PIVOTAL_STRATEGY::ONE_ROW_SEARCHING || _search < 1 ? 1 : _search );
+	const double mult{ _mult > 1 && strategy != PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION ? _mult : 1 };
+	const size_t search{ strategy == PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION || _search < 1 ? 1 : _search };
 	const int N = ( int )number_of_rows - 1;
 
-	if( pre_sort || strategy == PIVOTAL_STRATEGY::ONE_ROW_SEARCHING )
+	if( pre_sort == LD_PREPARATION::SORT )
 		sort_rows();
-
-	// test
-	sort_rows_ROWAMD();
-	// test
+	else if ( pre_sort == LD_PREPARATION::AMD || strategy == PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION )
+		sort_rows_ROWAMD();
 
 	// main loop, over all stages of elimination
 	// =========================================
@@ -930,14 +932,11 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 		// =========================================
 		switch( strategy )
 		{
-		case PIVOTAL_STRATEGY::ONE_ROW_SEARCHING:
+		case PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION:
 			choose_pivot_by_ONE_ROW_SEARCHING( stage, mult );
 			break;
 		case PIVOTAL_STRATEGY::MARKOWITZ_COST:
 			choose_pivot_by_MARKOWITZ_COST( stage, search, mult );
-			break;
-		case PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION:
-			choose_pivot_by_FILLIN_MINIMALIZATION( stage, search, mult );
 			break;
 		}
 		if( std::abs( PIVOT[ stage ] ) < eps )
@@ -1847,9 +1846,7 @@ void dynamic_storage_scheme< TYPE >::delete_column_package_in_COL( size_t col )
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::choose_pivot_by_ONE_ROW_SEARCHING( size_t stage,
-	double mult
-)
+void dynamic_storage_scheme< TYPE >::choose_pivot_by_ONE_ROW_SEARCHING( size_t stage, double mult )
 {
 	size_t INDEX;
 	double max_val = 0;
@@ -1997,103 +1994,6 @@ void dynamic_storage_scheme< TYPE >::choose_pivot_by_MARKOWITZ_COST( size_t stag
 	PIVOT[ stage ] = ALU[ INDEX ];
 	eliminate_element_in_ROL( INDEX, HA[ stage ][ 7 ] );
 
-}
-
-//----------------------------------------------------------- choose_pivot_by_FILLIN_MINIMALIZATION
-/**
-*  Function choose pivot which couses the smalest number of fillins
-*
-*  @param stage        - [in] stage of elimination
-*  @param search       - [in] number of rows to search
-*  @param mult         - [in] stable parametar
-*/
-//-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::choose_pivot_by_FILLIN_MINIMALIZATION( size_t stage,
-	size_t search,
-	double mult
-)
-{
-	const size_t LastSearch = ( stage + search < number_of_rows ? stage + search : number_of_rows );
-	size_t INDEX{ 0 };
-	double ABS_VAL{ 0 };
-	int MIN_FCOST{ 0 };
-	size_t ROW{ 0 };
-
-	for( size_t row = stage; row < LastSearch; row++ )
-	{
-		double max_val = 0;
-		int index = FREE;
-
-		// get begin and end of the active part of row
-		// ===========================================
-		const int begin_row = HA[ HA[ row ][ 7 ] ][ 2 ],
-			end_row = HA[ HA[ row ][ 7 ] ][ 3 ];
-
-		// find the greatest absolute value in row
-		// =======================================
-		for( int idx = begin_row; idx <= end_row; idx++ )
-		{
-			if( idx <= FREE )
-			{
-				logged_errors += "dynamic_storage_scheme< TYPE >::choose_pivot_by_FILLIN_MINIMALIZATION: some active row is empty\n";
-				return;
-			}
-			const double temp_abs_val = std::abs( ALU[ idx ] );
-			if( temp_abs_val > max_val )
-			{
-				max_val = temp_abs_val;
-				index = idx;
-			}
-		}
-		if( index == FREE )
-		{
-			logged_errors += "dynamic_storage_scheme< TYPE >::choose_pivot_by_FILLIN_MINIMALIZATION: some active row contains only zeroes in its active part\n";
-			return;
-		}
-		int max_index = index;
-		double abs_val = max_val;
-		int min_fcost = count_fillin_cost( max_index, HA[ row ][ 7 ] );
-		for( int idx = begin_row; idx <= end_row; idx++ )
-		{
-			if( idx == max_index )
-				continue;
-
-			// if element meets the stability criterion then consider it as a pivot
-			// ====================================================================
-			const double temp_abs_val = std::abs( ALU[ idx ] );
-			if( temp_abs_val * mult >= max_val )
-			{
-				// choose the best element in current row
-				// ======================================
-				const int fcost = count_fillin_cost( idx, HA[ row ][ 7 ] );
-				if( fcost < min_fcost || ( fcost == min_fcost && temp_abs_val > abs_val ) )
-				{
-					abs_val = temp_abs_val;
-					index = idx;
-					min_fcost = fcost;
-				}
-			}
-		}
-		// choose the best element in searching area (all considered rows)
-		// ===============================================================
-		if( min_fcost < MIN_FCOST || ( min_fcost == MIN_FCOST && abs_val > ABS_VAL ) || row == stage )
-		{
-			MIN_FCOST = min_fcost;
-			ABS_VAL = abs_val;
-			ROW = row;
-			INDEX = index;
-		}
-	}
-	// bring element to position (stage, stage)
-	// ========================================
-	permute_rows( ROW, stage );
-	permute_columns( HA[ CNLU[ INDEX ] ][ 10 ], stage );
-
-	// store pivot and free position in ROL
-	// ====================================
-	PIVOT[ stage ] = ALU[ INDEX ];
-	eliminate_element_in_ROL( INDEX, HA[ stage ][ 7 ] );
 }
 
 //--------------------------------------------------------------------------------------- sort_rows
