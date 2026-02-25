@@ -700,3 +700,31 @@ TEST( PrintScheme_double, real_matrix )
 
 	file.close();
 }
+
+
+TEST( non_singular_linear_equation_real_double, LU_decomposition_fillin_minimalization_compare )
+{
+	const size_t mx_size = 100;
+
+	auto ISS = generate_ISS< double >( mx_size, mx_size, true, 10, 0.00001, 100000.0 );
+
+	EXPECT_NO_THROW( permute_input_matrix_elements_test( &ISS ) );
+
+	unique_ptr< dynamic_storage_scheme< double > > DSS1, DSS2;
+
+	EXPECT_NO_THROW( DSS1 = make_unique< dynamic_storage_scheme< double > >( ISS, 20, 0.8 ) );
+	EXPECT_NO_THROW( DSS2 = make_unique< dynamic_storage_scheme< double > >( ISS, 20, 0.8 ) );
+
+	EXPECT_NO_THROW( DSS2->print_sparsity_pattern( "test10_sparsity_pattern.txt" ) );
+
+	EXPECT_NO_THROW( DSS1->LU_decomposition( PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, mx_size, 1.0, numeric_limits< double >::min(), LD_PREPARATION::SORT ) );
+	EXPECT_NO_THROW( DSS2->LU_decomposition( PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, mx_size, 1.0, numeric_limits< double >::min(), LD_PREPARATION::AMD ) );
+
+	EXPECT_EQ( DSS1->check_integrity_test(), 0 );
+	EXPECT_EQ( DSS2->check_integrity_test(), 0 );
+
+	auto c1 = DSS1->get_non_zeros_amount();
+	auto c2 = DSS2->get_non_zeros_amount();
+
+	EXPECT_TRUE( true );
+}

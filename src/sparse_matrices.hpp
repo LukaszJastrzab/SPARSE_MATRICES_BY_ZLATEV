@@ -572,6 +572,8 @@ public:
 	void SOR_iteration( std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >& prev_x ) const;
 
 	/// ==================== FUNCTIONS WRITTEN ONLY FOR TESTS ====================
+	/// returns amount of non zeros elements
+	size_t get_non_zeros_amount() const;
 	/// Method checks if there is not any mistakes in scheme structure
 	int check_integrity_test()const;
 	/// Method returns ostream with sparsity patern
@@ -2505,6 +2507,41 @@ std::ostream& operator<<( std::ostream& out,
 /*                                    TESTING FUNCTIONS                                          */
 /*                                                                                               */
 /*************************************************************************************************/
+
+//---------------------------------------------------------------------------- get_non_zeros_amount
+/**
+*  Returns amount of non zero elements
+*/
+//-------------------------------------------------------------------------------------------------
+template < typename TYPE >
+size_t dynamic_storage_scheme< TYPE >::get_non_zeros_amount() const
+{
+	size_t count{ 0 };
+
+	switch( dynamic_state )
+	{
+	case DYNAMIC_STATE::ROL_INIT:
+	case DYNAMIC_STATE::LU_DECOMPOSED:
+	case DYNAMIC_STATE::ITERATIVE:
+		for( const auto& item : CNLU )
+			if( item != FREE )
+				++count;
+		break;
+
+	case DYNAMIC_STATE::COL_INIT:
+	case DYNAMIC_STATE::QR_DECOMPOSED:
+		for( const auto& item : RNLU )
+			if( item != FREE )
+				++count;
+		break;
+
+	default:
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::get_non_zeros_amount - dynamic_state not supported" );
+	}
+
+	return count;
+}
+
 //---------------------------------------------------------------------------- check_integrity_test
 /**
 *  Function checks the consistency of the data contained in dynamic_storage_scheme
