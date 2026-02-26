@@ -598,7 +598,7 @@ private:
 	/// Function performs the organize of the elements in a compact structure in ROL
 	void garbage_collection_in_ROL( void );
 	/// Function use to storing fillins in column ordered list, params row and col are current position in matrix
-	STORING_STATUS store_fillin_COL( int row, int col, bool garbage_on = true );
+	STORING_STATUS store_fillin_COL( TYPE val, int row, int col, bool garbage_on = true );
 	/// Function performs the organize of the elements in a compact structure in COL
 	void garbage_collection_in_COL( void );
 	/// Method brings the choosen element on choosen row to begin of active part of it and incress active begine pointer (so element is inactive)
@@ -1017,7 +1017,7 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 					{
 						if( store_fillin_ROL( fillin, eliminated_row, col_number ) == STORING_STATUS::STORING_FAIL )
 							throw std::exception( "dynamic_storage_scheme< TYPE >::LU_decomposition: not enough memory in ROL" );
-						if( store_fillin_COL( eliminated_row, col_number ) == STORING_STATUS::STORING_FAIL )
+						if( store_fillin_COL( fillin, eliminated_row, col_number ) == STORING_STATUS::STORING_FAIL )
 							throw std::exception( "dynamic_storage_scheme< TYPE >::LU_decomposition: not enough memory in COL" );
 						PIVOT[ HA[ col_number ][ 10 ] ] = 0;
 
@@ -1438,7 +1438,9 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 		// ===============================
 		if( ( size_t )after < NROL && CNLU[ after ] == FREE )
 		{
-			ALU[ after ] = val;
+			if ( dynamic_state == DYNAMIC_STATE::ROL_INIT )
+				ALU[ after ] = val;
+
 			CNLU[ after ] = origCol;
 			HA[ origRow ][ 3 ] = after;
 			CROL++;
@@ -1450,9 +1452,14 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 		else if( before >= 0 && CNLU[ before ] == FREE )
 		{
 			const int idx = HA[ origRow ][ 2 ] - 1;
-			ALU[ before ] = ALU[ idx ];
+
+			if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
+			{
+				ALU[ before ] = ALU[ idx ];
+				ALU[ idx ] = val;
+			}
+
 			CNLU[ before ] = CNLU[ idx ];
-			ALU[ idx ] = val;
 			CNLU[ idx ] = origCol;
 			HA[ origRow ][ 2 ]--;
 			HA[ origRow ][ 1 ] = before;
@@ -1466,11 +1473,16 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 			const int dist = LROL + 1 - HA[ origRow ][ 1 ];
 			for( idx = HA[ origRow ][ 1 ]; idx <= HA[ origRow ][ 3 ]; idx++ )
 			{
-				ALU[ ( size_t )idx + dist ] = ALU[ idx ];
+				if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
+					ALU[ ( size_t )idx + dist ] = ALU[ idx ];
+
 				CNLU[ ( size_t )idx + dist ] = CNLU[ idx ];
 				CNLU[ idx ] = FREE;
 			}
-			ALU[ ( size_t )idx + dist ] = val;
+
+			if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
+				ALU[ ( size_t )idx + dist ] = val;
+
 			CNLU[ ( size_t )idx + dist ] = origCol;
 			HA[ origRow ][ 1 ] += dist;
 			HA[ origRow ][ 2 ] += dist;
@@ -1491,7 +1503,10 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 		else
 		{
 			size_t new_mem = NROL * expanding_mult;
-			ALU.insert( ALU.end(), new_mem, TYPE{ 0 } );
+
+			if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
+				ALU.insert( ALU.end(), new_mem, TYPE{ 0 } );
+
 			CNLU.insert( CNLU.end(), new_mem, FREE );
 			NROL = CNLU.size();
 
@@ -1505,8 +1520,10 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 		const size_t idx = LROL + 1;
 		if( idx < NROL && CNLU[ idx ] == FREE )
 		{
+			if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
+				ALU[ idx ] = val;
+
 			HA[ origRow ][ 1 ] = HA[ origRow ][ 2 ] = HA[ origRow ][ 3 ] = idx;
-			ALU[ idx ] = val;
 			CNLU[ idx ] = origCol;
 			CROL = 1;
 			LROL++;
@@ -1519,7 +1536,10 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 		else
 		{
 			size_t new_mem = NROL * expanding_mult;
-			ALU.insert( ALU.end(), new_mem, TYPE{ 0 } );
+
+			if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
+				ALU.insert( ALU.end(), new_mem, TYPE{ 0 } );
+
 			CNLU.insert( CNLU.end(), new_mem, FREE );
 			NROL = CNLU.size();
 
@@ -1557,7 +1577,9 @@ void dynamic_storage_scheme< TYPE >::garbage_collection_in_ROL( void )
 			continue;
 		else if( CNLU[ idx ] < FREE )
 		{
-			ALU[ NEWPOS ] = ALU[ idx ];
+			if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
+				ALU[ NEWPOS ] = ALU[ idx ];
+
 			const int row = -CNLU[ idx ] - 2;
 			CNLU[ NEWPOS ] = HA[ row ][ 1 ];
 			HA[ row ][ 1 ] = NEWPOS;
@@ -1568,7 +1590,9 @@ void dynamic_storage_scheme< TYPE >::garbage_collection_in_ROL( void )
 		}
 		else
 		{
-			ALU[ NEWPOS ] = ALU[ idx ];
+			if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
+				ALU[ NEWPOS ] = ALU[ idx ];
+
 			CNLU[ NEWPOS ] = CNLU[ idx ];
 			NEWPOS++;
 		}
@@ -1594,7 +1618,8 @@ void dynamic_storage_scheme< TYPE >::garbage_collection_in_ROL( void )
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( int origRow,
+STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val,
+	int origRow,
 	int origCol,
 	bool garbage_on
 )
@@ -1610,6 +1635,9 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( int origRow,
 		// ==================================
 		if( ( size_t )after < NCOL && RNLU[ after ] == FREE )
 		{
+			if( dynamic_state == DYNAMIC_STATE::COL_INIT )
+				ALU[ after ] = val;
+
 			RNLU[ after ] = origRow;
 			HA[ origCol ][ 6 ] = after;
 			CCOL++;
@@ -1621,6 +1649,13 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( int origRow,
 		else if( before >= 0 && RNLU[ before ] == FREE )
 		{
 			const int idx = HA[ origCol ][ 5 ] - 1;
+
+			if( dynamic_state == DYNAMIC_STATE::COL_INIT )
+			{
+				ALU[ before ] = ALU[ idx ];
+				ALU[ idx ] = val;
+			}
+
 			RNLU[ before ] = RNLU[ idx ];
 			RNLU[ idx ] = origRow;
 			HA[ origCol ][ 5 ]--;
@@ -1635,9 +1670,16 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( int origRow,
 			const int dist = LCOL + 1 - HA[ origCol ][ 4 ];
 			for( idx = HA[ origCol ][ 4 ]; idx <= HA[ origCol ][ 6 ]; idx++ )
 			{
+				if( dynamic_state == DYNAMIC_STATE::COL_INIT )
+					ALU[ ( size_t )idx + dist ] = ALU[ idx ];
+
 				RNLU[ ( size_t )idx + dist ] = RNLU[ idx ];
 				RNLU[ idx ] = FREE;
 			}
+
+			if( dynamic_state == DYNAMIC_STATE::COL_INIT )
+				ALU[ ( size_t )idx + dist ] = val;
+
 			RNLU[ ( size_t )idx + dist ] = origRow;
 			HA[ origCol ][ 4 ] += dist;
 			HA[ origCol ][ 5 ] += dist;
@@ -1653,15 +1695,19 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( int origRow,
 		else if( garbage_on )
 		{
 			garbage_collection_in_COL();
-			return store_fillin_COL( origRow, origCol, false );
+			return store_fillin_COL( val, origRow, origCol, false );
 		}
 		else
 		{
 			size_t new_mem = NCOL * expanding_mult;
+
+			if( dynamic_state == DYNAMIC_STATE::COL_INIT )
+				ALU.insert( ALU.end(), new_mem, TYPE{ 0 } );
+
 			RNLU.insert( RNLU.end(), new_mem, FREE );
 			NCOL = RNLU.size();
 
-			return store_fillin_COL( origRow, origCol, true );
+			return store_fillin_COL( val, origRow, origCol, true );
 		}
 	}
 	// in case when column is empty
@@ -1671,6 +1717,9 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( int origRow,
 		const size_t idx = LCOL + 1;
 		if( idx < NCOL && RNLU[ idx ] == FREE )
 		{
+			if( dynamic_state == DYNAMIC_STATE::COL_INIT )
+				ALU[ idx ] = val;
+
 			HA[ origCol ][ 4 ] = HA[ origCol ][ 5 ] = HA[ origCol ][ 6 ] = idx;
 			RNLU[ idx ] = origRow;
 			CCOL = 1;
@@ -1679,15 +1728,19 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( int origRow,
 		else if( garbage_on )
 		{
 			garbage_collection_in_COL();
-			return store_fillin_COL( origRow, origCol, false );
+			return store_fillin_COL( val, origRow, origCol, false );
 		}
 		else
 		{
 			size_t new_mem = NCOL * expanding_mult;
+
+			if( dynamic_state == DYNAMIC_STATE::COL_INIT )
+				ALU.insert( ALU.end(), new_mem, TYPE{ 0 } );
+
 			RNLU.insert( RNLU.end(), new_mem, FREE );
 			NCOL = RNLU.size();
 
-			return store_fillin_COL( origRow, origCol, true );
+			return store_fillin_COL( val, origRow, origCol, true );
 		}
 	}
 
@@ -1721,6 +1774,9 @@ void dynamic_storage_scheme< TYPE >::garbage_collection_in_COL( void )
 			continue;
 		else if( RNLU[ idx ] < FREE )
 		{
+			if( dynamic_state == DYNAMIC_STATE::COL_INIT )
+				ALU[ NEWPOS ] = ALU[ idx ];
+
 			const int col = -RNLU[ idx ] - 2;
 			RNLU[ NEWPOS ] = HA[ col ][ 4 ];
 			HA[ col ][ 4 ] = NEWPOS;
@@ -1731,6 +1787,9 @@ void dynamic_storage_scheme< TYPE >::garbage_collection_in_COL( void )
 		}
 		else
 		{
+			if( dynamic_state == DYNAMIC_STATE::COL_INIT )
+				ALU[ NEWPOS ] = ALU[ idx ];
+
 			RNLU[ NEWPOS ] = RNLU[ idx ];
 			NEWPOS++;
 		}
