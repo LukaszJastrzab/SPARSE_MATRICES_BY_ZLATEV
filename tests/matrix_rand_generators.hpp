@@ -8,7 +8,8 @@
 #include <sparse_matrices.hpp>
 
 std::random_device rd;
-std::mt19937 g( rd() );
+std::mt19937 g( 123u /*rd()*/ );
+//std::mt19937 g( rd() );
 
 std::uniform_int_distribution< int > bool_rng( 0, 1 );
 

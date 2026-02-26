@@ -539,9 +539,14 @@ private:
 		HA[c][10] - number of column, where is placed c-th original column
 	*/
 
-	DYNAMIC_STATE dynamic_state{ DYNAMIC_STATE::NONE };	/// variable indicating current state of the scheme
-	double relaxation_parameter{ 1.0 };					/// relaxation parameter for SOR method
-	std::string logged_errors;							/// output string log all errors and warnings obtained during the computation
+	/// variable indicating current state of the scheme
+	DYNAMIC_STATE dynamic_state{ DYNAMIC_STATE::NONE };
+	/// relaxation parameter for SOR method
+	double relaxation_parameter{ 1.0 };
+	/// output string log all errors and warnings obtained during the computation
+	std::string logged_errors;
+	/// constant multiplier used to expand COL/ROL space due to fillins
+	const float expanding_mult{ 0.5 };
 
 
 public:
@@ -762,7 +767,7 @@ dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS,
 			for( int j = HA[ i ][ 1 ]; j <= HA[ i ][ 3 ]; j++ )
 			{
 				const int l = CNLU[ j ];
-				RNLU[ HA[ l ][ 4 ] + HA[ l ][ 6 ] ] = i;
+				RNLU[ static_cast<size_t>( HA[ l ][ 4 ] + HA[ l ][ 6 ] ) ] = i;
 				++HA[ l ][ 6 ];
 			}
 		}
@@ -923,7 +928,7 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 
 	if( pre_sort == LD_PREPARATION::SORT )
 		sort_rows();
-	else if ( pre_sort == LD_PREPARATION::AMD || strategy == PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION )
+	else if( pre_sort == LD_PREPARATION::AMD || strategy == PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION )
 		sort_rows_ROWAMD();
 
 	// main loop, over all stages of elimination
@@ -1003,7 +1008,8 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 				}
 				// last part - add fillins
 				// =======================
-				for( int idx = HA[ eliminating_row ][ 2 ]; idx <= HA[ eliminating_row ][ 3 ]; ++idx )
+				int erow_end{ HA[ eliminating_row ][ 3 ] };
+				for( int idx = HA[ eliminating_row ][ 2 ]; idx <= erow_end; ++idx )
 				{
 					const size_t col_number = CNLU[ idx ];
 					TYPE fillin = -eliminator * PIVOT[ HA[ col_number ][ 10 ] ];
@@ -1014,6 +1020,15 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 						if( store_fillin_COL( eliminated_row, col_number ) == STORING_STATUS::STORING_FAIL )
 							throw std::exception( "dynamic_storage_scheme< TYPE >::LU_decomposition: not enough memory in COL" );
 						PIVOT[ HA[ col_number ][ 10 ] ] = 0;
+
+						// garbage collection may change coords of eliminating row
+						// therfore following correction in needed
+						// ========================================================
+						if( erow_end != HA[ eliminating_row ][ 3 ] )
+						{
+							idx -= ( erow_end - HA[ eliminating_row ][ 3 ] );
+							erow_end = HA[ eliminating_row ][ 3 ];
+						}
 					}
 				}
 			}
@@ -1284,7 +1299,7 @@ void dynamic_storage_scheme< TYPE >::SOR_iteration( std::vector< TYPE >& x,
 			x[ row ] -= ( ALU[ idx ] * prev_x[ CNLU[ idx ] ] );
 		x[ row ] *= relaxation_parameter;
 		x[ row ] /= PIVOT[ row ];
-		x[ row ] += ( static_cast< TYPE >( 1 )  - static_cast< TYPE >( relaxation_parameter ) ) * prev_x[ row ];
+		x[ row ] += ( static_cast< TYPE >( 1 ) - static_cast< TYPE >( relaxation_parameter ) ) * prev_x[ row ];
 	}
 }
 
@@ -1416,75 +1431,71 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 	// ==================
 	if( HA[ origRow ][ 1 ] != FREE )
 	{
-		if( CROL < NROL )
-		{
-			const int after = HA[ origRow ][ 3 ] + 1,
-				before = HA[ origRow ][ 1 ] - 1;
+		const int after = HA[ origRow ][ 3 ] + 1,
+			before = HA[ origRow ][ 1 ] - 1;
 
-			// store element after row package
-			// ===============================
-			if( ( size_t )after < NROL && CNLU[ after ] == FREE )
+		// store element after row package
+		// ===============================
+		if( ( size_t )after < NROL && CNLU[ after ] == FREE )
+		{
+			ALU[ after ] = val;
+			CNLU[ after ] = origCol;
+			HA[ origRow ][ 3 ] = after;
+			CROL++;
+			if( ( size_t )after > LROL )
+				LROL = ( size_t )after;
+		}
+		// store element before row package
+		// ================================
+		else if( before >= 0 && CNLU[ before ] == FREE )
+		{
+			const int idx = HA[ origRow ][ 2 ] - 1;
+			ALU[ before ] = ALU[ idx ];
+			CNLU[ before ] = CNLU[ idx ];
+			ALU[ idx ] = val;
+			CNLU[ idx ] = origCol;
+			HA[ origRow ][ 2 ]--;
+			HA[ origRow ][ 1 ] = before;
+			CROL++;
+		}
+		// copy row package to further position
+		// ====================================
+		else if( static_cast< size_t >( after ) - before <= ( NROL - LROL - 1 ) )
+		{
+			int idx;
+			const int dist = LROL + 1 - HA[ origRow ][ 1 ];
+			for( idx = HA[ origRow ][ 1 ]; idx <= HA[ origRow ][ 3 ]; idx++ )
 			{
-				ALU[ after ] = val;
-				CNLU[ after ] = origCol;
-				HA[ origRow ][ 3 ] = after;
-				CROL++;
-				if( ( size_t )after > LROL )
-					LROL = ( size_t )after;
+				ALU[ ( size_t )idx + dist ] = ALU[ idx ];
+				CNLU[ ( size_t )idx + dist ] = CNLU[ idx ];
+				CNLU[ idx ] = FREE;
 			}
-			// store element before row package
-			// ================================
-			else if( before >= 0 && CNLU[ before ] == FREE )
-			{
-				const int idx = HA[ origRow ][ 2 ] - 1;
-				ALU[ before ] = ALU[ idx ];
-				CNLU[ before ] = CNLU[ idx ];
-				ALU[ idx ] = val;
-				CNLU[ idx ] = origCol;
-				HA[ origRow ][ 2 ]--;
-				HA[ origRow ][ 1 ] = before;
-				CROL++;
-			}
-			// copy row package to further position
-			// ====================================
-			else if( ( ( size_t )HA[ origRow ][ 3 ] - HA[ origRow ][ 1 ] + 2 ) <= ( NROL - LROL - 1 ) )
-			{
-				int idx;
-				const int dist = LROL + 1 - HA[ origRow ][ 1 ];
-				for( idx = HA[ origRow ][ 1 ]; idx <= HA[ origRow ][ 3 ]; idx++ )
-				{
-					ALU[ ( size_t )idx + dist ] = ALU[ idx ];
-					CNLU[ ( size_t )idx + dist ] = CNLU[ idx ];
-					CNLU[ idx ] = FREE;
-				}
-				ALU[ ( size_t )idx + dist ] = val;
-				CNLU[ ( size_t )idx + dist ] = origCol;
-				HA[ origRow ][ 1 ] += dist;
-				HA[ origRow ][ 2 ] += dist;
-				HA[ origRow ][ 3 ] += ( dist + 1 );
-				CROL++;
-				LROL = ( size_t )HA[ origRow ][ 3 ];
-			}
-			// else garbage collection is needed
-			// =================================
-			// note: in some cases garbage collection cann't help to store element even there is a place to do it,
-			// to avoid stack overflow in this cases, this block of code should be executed only once during storing element
-			// =============================================================================================================
-			else if( garbage_on )
-			{
-				garbage_collection_in_ROL();
-				return store_fillin_ROL( val, origRow, origCol, false );
-			}
-			else
-			{
-				logged_errors += "dynamic_storage_scheme< TYPE >::store_fillin_ROL: out of memory\n";
-				return STORING_STATUS::STORING_FAIL;
-			}
+			ALU[ ( size_t )idx + dist ] = val;
+			CNLU[ ( size_t )idx + dist ] = origCol;
+			HA[ origRow ][ 1 ] += dist;
+			HA[ origRow ][ 2 ] += dist;
+			HA[ origRow ][ 3 ] += ( dist + 1 );
+			CROL++;
+			LROL = ( size_t )HA[ origRow ][ 3 ];
+		}
+		// else garbage collection is needed
+		// =================================
+		// note: in some cases garbage collection cann't help to store element even there is a place to do it,
+		// to avoid stack overflow in this cases, this block of code should be executed only once during storing element
+		// =============================================================================================================
+		else if( garbage_on )
+		{
+			garbage_collection_in_ROL();
+			return store_fillin_ROL( val, origRow, origCol, false );
 		}
 		else
 		{
-			logged_errors += "dynamic_storage_scheme< TYPE >::store_fillin_ROL: out of memory\n";
-			return STORING_STATUS::STORING_FAIL;
+			size_t new_mem = NROL * expanding_mult;
+			ALU.insert( ALU.end(), new_mem, TYPE{ 0 } );
+			CNLU.insert( CNLU.end(), new_mem, FREE );
+			NROL = CNLU.size();
+
+			return store_fillin_ROL( val, origRow, origCol, true );
 		}
 	}
 	// in case when row is empty
@@ -1507,8 +1518,12 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 		}
 		else
 		{
-			logged_errors += "dynamic_storage_scheme< TYPE >::store_fillin_ROL: out of memory\n";
-			return STORING_STATUS::STORING_FAIL;
+			size_t new_mem = NROL * expanding_mult;
+			ALU.insert( ALU.end(), new_mem, TYPE{ 0 } );
+			CNLU.insert( CNLU.end(), new_mem, FREE );
+			NROL = CNLU.size();
+
+			return store_fillin_ROL( val, origRow, origCol, true );
 		}
 	}
 
@@ -1588,70 +1603,65 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( int origRow,
 	// =====================
 	if( HA[ origCol ][ 4 ] != FREE )
 	{
-		if( CCOL < NROL )
-		{
-			const int after = HA[ origCol ][ 6 ] + 1,
-				before = HA[ origCol ][ 4 ] - 1;
+		const int after = HA[ origCol ][ 6 ] + 1,
+			before = HA[ origCol ][ 4 ] - 1;
 
-			// store element after column package
-			// ==================================
-			if( ( size_t )after < NCOL && RNLU[ after ] == FREE )
+		// store element after column package
+		// ==================================
+		if( ( size_t )after < NCOL && RNLU[ after ] == FREE )
+		{
+			RNLU[ after ] = origRow;
+			HA[ origCol ][ 6 ] = after;
+			CCOL++;
+			if( ( size_t )after > LCOL )
+				LCOL = ( size_t )after;
+		}
+		// store element before column package
+		// ===================================
+		else if( before >= 0 && RNLU[ before ] == FREE )
+		{
+			const int idx = HA[ origCol ][ 5 ] - 1;
+			RNLU[ before ] = RNLU[ idx ];
+			RNLU[ idx ] = origRow;
+			HA[ origCol ][ 5 ]--;
+			HA[ origCol ][ 4 ] = before;
+			CCOL++;
+		}
+		// copy column package to further position
+		// =======================================
+		else if( static_cast< size_t >( after ) - before <= ( NCOL - LCOL - 1 ) )
+		{
+			int idx;
+			const int dist = LCOL + 1 - HA[ origCol ][ 4 ];
+			for( idx = HA[ origCol ][ 4 ]; idx <= HA[ origCol ][ 6 ]; idx++ )
 			{
-				RNLU[ after ] = origRow;
-				HA[ origCol ][ 6 ] = after;
-				CCOL++;
-				if( ( size_t )after > LCOL )
-					LCOL = ( size_t )after;
+				RNLU[ ( size_t )idx + dist ] = RNLU[ idx ];
+				RNLU[ idx ] = FREE;
 			}
-			// store element before column package
-			// ===================================
-			else if( before >= 0 && RNLU[ before ] == FREE )
-			{
-				const int idx = HA[ origCol ][ 5 ] - 1;
-				RNLU[ before ] = RNLU[ idx ];
-				RNLU[ idx ] = origRow;
-				HA[ origCol ][ 5 ]--;
-				HA[ origCol ][ 4 ] = before;
-				CCOL++;
-			}
-			// copy column package to further position
-			// =======================================
-			else if( ( ( size_t )HA[ origCol ][ 6 ] - HA[ origCol ][ 4 ] + 2 ) <= ( NCOL - LCOL - 1 ) )
-			{
-				int idx;
-				const int dist = LCOL + 1 - HA[ origCol ][ 4 ];
-				for( idx = HA[ origCol ][ 4 ]; idx <= HA[ origCol ][ 6 ]; idx++ )
-				{
-					RNLU[ ( size_t )idx + dist ] = RNLU[ idx ];
-					RNLU[ idx ] = FREE;
-				}
-				RNLU[ ( size_t )idx + dist ] = origRow;
-				HA[ origCol ][ 4 ] += dist;
-				HA[ origCol ][ 5 ] += dist;
-				HA[ origCol ][ 6 ] += ( dist + 1 );
-				CCOL++;
-				LCOL = ( size_t )HA[ origCol ][ 6 ];
-			}
-			// else garbage collection is needed
-			// =================================
-			// note: in some cases garbage collection cann't help to store element even there is a place to do it,
-			// to avoid stack overflow in this cases, this block of code should be executed only once during storing element
-			// =============================================================================================================
-			else if( garbage_on )
-			{
-				garbage_collection_in_COL();
-				return store_fillin_COL( origRow, origCol, false );
-			}
-			else
-			{
-				logged_errors += "dynamic_storage_scheme< TYPE >::store_fillin_COL: out of memory\n";
-				return STORING_STATUS::STORING_FAIL;
-			}
+			RNLU[ ( size_t )idx + dist ] = origRow;
+			HA[ origCol ][ 4 ] += dist;
+			HA[ origCol ][ 5 ] += dist;
+			HA[ origCol ][ 6 ] += ( dist + 1 );
+			CCOL++;
+			LCOL = ( size_t )HA[ origCol ][ 6 ];
+		}
+		// else garbage collection is needed
+		// =================================
+		// note: in some cases garbage collection cann't help to store element even there is a place to do it,
+		// to avoid stack overflow in this cases, this block of code should be executed only once during storing element
+		// =============================================================================================================
+		else if( garbage_on )
+		{
+			garbage_collection_in_COL();
+			return store_fillin_COL( origRow, origCol, false );
 		}
 		else
 		{
-			logged_errors += "dynamic_storage_scheme< TYPE >::store_fillin_COL: out of memory\n";
-			return STORING_STATUS::STORING_FAIL;
+			size_t new_mem = NCOL * expanding_mult;
+			RNLU.insert( RNLU.end(), new_mem, FREE );
+			NCOL = RNLU.size();
+
+			return store_fillin_COL( origRow, origCol, true );
 		}
 	}
 	// in case when column is empty
@@ -1673,8 +1683,11 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( int origRow,
 		}
 		else
 		{
-			logged_errors += "dynamic_storage_scheme< TYPE >::store_fillin_COL: out of memory\n";
-			return STORING_STATUS::STORING_FAIL;
+			size_t new_mem = NCOL * expanding_mult;
+			RNLU.insert( RNLU.end(), new_mem, FREE );
+			NCOL = RNLU.size();
+
+			return store_fillin_COL( origRow, origCol, true );
 		}
 	}
 
@@ -2093,10 +2106,10 @@ void dynamic_storage_scheme< TYPE >::sort_rows_ROWAMD()
 		permute_rows( r, r_min );
 
 		R = HA[ r ][ 7 ];
-		for( const auto& [ c, val ]  : row_connections[ R ] )
+		for( const auto& [c, val] : row_connections[ R ] )
 		{
 			row_connections[ c ].erase( R );
-			for( const auto& [ cn, val ] : row_connections[ R ] )
+			for( const auto& [cn, val] : row_connections[ R ] )
 				if( cn != c )
 					row_connections[ c ][ cn ] = true;
 		}
@@ -2567,7 +2580,7 @@ int dynamic_storage_scheme< TYPE >::check_integrity_test() const
 		else
 			c++;
 	}
-	if( a + c != NROL )
+	if( static_cast< size_t >( a + c ) != NROL )
 	{
 		out << "memory error in ROL: " << b << " pbits" << std::endl;
 		ret_val = 2;
@@ -2618,7 +2631,7 @@ int dynamic_storage_scheme< TYPE >::check_integrity_test() const
 		else
 			c++;
 	}
-	if( a + c != NCOL )
+	if( static_cast< size_t >( a + c ) != NCOL )
 	{
 		out << "memory error in COL: " << b << " pbits" << std::endl;
 		ret_val = 2;

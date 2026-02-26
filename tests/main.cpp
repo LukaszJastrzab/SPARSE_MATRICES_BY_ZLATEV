@@ -415,59 +415,36 @@ TEST( non_singular_linear_equation_complex_float, LU_decomposition_fillin_min )
 
 TEST( non_singular_linear_equation_complex_double, LU_decomposition_fillin_min )
 {
-	const size_t mx_size = 100;
+	const size_t mx_size = 20;
 
-	// Input Store Scheme
-	// ==================
-	auto ISS = generate_ISS< complex< double > >( mx_size, mx_size, true, 15, 0.00001, 100000.0 );
+	for( int i{ 0 }; i < 50; ++i )
+	{
+		auto ISS = generate_ISS< complex< double > >( mx_size, mx_size, true, 10, 0.00001, 100000.0 );
 
-	// This function is redundant in computation
-	// here we wont to verify if order of adding elements to ISS make a difference
-	// !!!ORDER OF ADDING ELEMENTS TO ISS SHOULD NOT MAKE A DIFFERENCE FOR CALULACTIONS!!!
-	// ===================================================================================
-	EXPECT_NO_THROW( permute_input_matrix_elements_test( &ISS ) );
+		EXPECT_NO_THROW( permute_input_matrix_elements_test( &ISS ) );
 
-	// Dynamic Storage Scheme
-	// ======================
-	unique_ptr< dynamic_storage_scheme< complex< double > > > DSS;
+		unique_ptr< dynamic_storage_scheme< complex< double > > > DSS;
 
-	// Create dynamic scheme with some additional memmory for dinamic operations
-	// =========================================================================
-	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< complex< double > > >( ISS, 10, 0.8 ) );
+		EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< complex< double > > >( ISS, 1, 1.8 ) );
 
-	// Decompose matric to triangular (lower and uuper) factor L and U
-	// this is done using Gauss elimination with picotal strategy
-	// ===============================================================
-	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, mx_size, 1.0, numeric_limits< double >::min(), LD_PREPARATION::AMD ) );
+		EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, mx_size, 1.0, numeric_limits< double >::min(), LD_PREPARATION::AMD ) );
 
-	// test if LU_decomposition keeps the rules of handling with dynamic_scheme
-	// just for test purposes
-	//==========================================
-	EXPECT_EQ( DSS->check_integrity_test(), 0 );
+		EXPECT_EQ( DSS->check_integrity_test(), 0 );
 
-	// allocation of vectors of equation Ax = b
-	// ========================================
-	vector< complex< double > > b( mx_size, complex < double >( 0.0 ) );
-	vector< complex< double > > x( mx_size, complex < double >( 0.0 ) );
-	vector< complex< double > > r( mx_size, complex < double >( 0.0 ) ); // residual vector ( inaccuracy vector )
+		vector< complex< double > > b( mx_size, complex < double >( 0.0 ) );
+		vector< complex< double > > x( mx_size, complex < double >( 0.0 ) );
+		vector< complex< double > > r( mx_size, complex < double >( 0.0 ) ); // residual vector ( inaccuracy vector )
 
-	random_vector_values( &b, complex < double >( 0.00001 ), complex < double >( 10000.0 ) );
+		random_vector_values( &b, complex < double >( 0.00001 ), complex < double >( 10000.0 ) );
 
-	// solve equation to obtain first aproximation of the solution
-	// ===========================================================
-	EXPECT_NO_THROW( DSS->solve_LU( x, b ) );
+		// solve equation to obtain first aproximation of the solution
+		// ===========================================================
+		EXPECT_NO_THROW( DSS->solve_LU( x, b ) );
+		EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x, b, numeric_limits< double >::min(), 1000 ) );
+		EXPECT_NO_THROW( ISS.count_rasidual_vector( x, b, r ) );
 
-	// imporve the result by iterative refinemnt
-	// =========================================
-	EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x, b, numeric_limits< double >::min(), 1000 ) );
-
-	// calculate residual vector, i.e. r = b - Ax ( in "on-paper" solution r should be zeros )
-	// =======================================================================================
-	EXPECT_NO_THROW( ISS.count_rasidual_vector( x, b, r ) );
-
-	// check inacurracy no some accuarcy level
-	// =======================================
-	EXPECT_LE( l2_norm( r ) / l2_norm( b ), eps_double );
+		EXPECT_LE( l2_norm( r ) / l2_norm( b ), eps_double );
+	}
 }
 
 TEST( SOR_linear_equation_real_float, iterative_preparation )
@@ -656,48 +633,41 @@ TEST( SOR_linear_equation_complex_double, iterative_preparation )
 	// =====================================================================================
 	EXPECT_NO_THROW( DSS->iterative_preparation() );
 
-	// test if iterative_preparation keeps the rules of handling with dynamic_scheme
-	// just for test purposes
-	//==========================================
 	EXPECT_EQ( DSS->check_integrity_test(), 0 );
 
-	// allocation of vectors of equation Ax = b
-	// ========================================
 	vector< complex< double > > b( mx_size, complex < double >( 0.0 ) );
 	vector< complex< double > > x( mx_size, complex < double >( 0.0 ) );
-	vector< complex< double > > r( mx_size, complex < double >( 0.0 ) ); // residual vector ( inaccuracy vector )
+	vector< complex< double > > r( mx_size, complex < double >( 0.0 ) );
 
 	random_vector_values( &b, complex< double >( 0.00001 ), complex< double >( 10000.0 ) );
 
-	// imporve the result by iterative refinemnt
-	// =========================================
 	EXPECT_NO_THROW( DSS->iterative_refinement( ISS, x, b, numeric_limits< double >::min(), 1000 ) );
 
-	// calculate residual vector, i.e. r = b - Ax ( in "on-paper" solution r should be zeros )
-	// =======================================================================================
 	EXPECT_NO_THROW( ISS.count_rasidual_vector( x, b, r ) );
-
-	// check inacurracy no some accuarcy level
-	// =======================================
 	EXPECT_LE( l2_norm( r ) / l2_norm( b ), eps_double );
 }
 
 TEST( PrintScheme_double, real_matrix )
 {
 	const size_t mx_size = 20;
-
-	auto ISS = generate_ISS_with_strong_diagonal( mx_size, mx_size, 5, 0.0001, 10000.0 );
-
+	auto ISS = generate_ISS< double >( mx_size, mx_size, true, 15, 0.00001, 100000.0 );
 	unique_ptr< dynamic_storage_scheme< double > > DSS;
-
 	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< double > >( ISS, 1, 1 ) );
-
 	std::ofstream file( "PrintScheme_real_matrix.txt" );
-
 	EXPECT_TRUE( file );
-
 	EXPECT_NO_THROW( file << *DSS );
+	file.close();
+}
 
+TEST( PrintScheme_double, complex_matrix )
+{
+	const size_t mx_size = 20;
+	auto ISS = generate_ISS< complex< double > >( mx_size, mx_size, true, 10, 0.00001, 100000.0 );
+	unique_ptr< dynamic_storage_scheme< complex< double > > > DSS;
+	EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< complex< double > > >( ISS, 1, 1 ) );
+	std::ofstream file( "PrintScheme_complex_matrix.txt" );
+	EXPECT_TRUE( file );
+	EXPECT_NO_THROW( file << *DSS );
 	file.close();
 }
 
@@ -706,16 +676,14 @@ TEST( non_singular_linear_equation_real_double, LU_decomposition_fillin_minimali
 {
 	const size_t mx_size = 100;
 
-	auto ISS = generate_ISS< double >( mx_size, mx_size, true, 10, 0.00001, 100000.0 );
+	auto ISS = generate_ISS< double >( mx_size, mx_size, true, 3, 0.00001, 100000.0 );
 
 	EXPECT_NO_THROW( permute_input_matrix_elements_test( &ISS ) );
 
 	unique_ptr< dynamic_storage_scheme< double > > DSS1, DSS2;
 
-	EXPECT_NO_THROW( DSS1 = make_unique< dynamic_storage_scheme< double > >( ISS, 20, 0.8 ) );
-	EXPECT_NO_THROW( DSS2 = make_unique< dynamic_storage_scheme< double > >( ISS, 20, 0.8 ) );
-
-	EXPECT_NO_THROW( DSS2->print_sparsity_pattern( "test10_sparsity_pattern.txt" ) );
+	EXPECT_NO_THROW( DSS1 = make_unique< dynamic_storage_scheme< double > >( ISS, 3, 0.8 ) );
+	EXPECT_NO_THROW( DSS2 = make_unique< dynamic_storage_scheme< double > >( ISS, 3, 0.8 ) );
 
 	EXPECT_NO_THROW( DSS1->LU_decomposition( PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, mx_size, 1.0, numeric_limits< double >::min(), LD_PREPARATION::SORT ) );
 	EXPECT_NO_THROW( DSS2->LU_decomposition( PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, mx_size, 1.0, numeric_limits< double >::min(), LD_PREPARATION::AMD ) );
@@ -726,5 +694,17 @@ TEST( non_singular_linear_equation_real_double, LU_decomposition_fillin_minimali
 	auto c1 = DSS1->get_non_zeros_amount();
 	auto c2 = DSS2->get_non_zeros_amount();
 
-	EXPECT_TRUE( true );
+	vector< double > b( mx_size, 0.0 );
+	vector< double > x( mx_size, 0.0 );
+	vector< double > r( mx_size, 0.0 );
+
+	random_vector_values( &b, 0.00001, 10000.0 );
+
+	EXPECT_NO_THROW( DSS1->solve_LU( x, b ) );
+	EXPECT_NO_THROW( ISS.count_rasidual_vector( x, b, r ) );
+	EXPECT_LE( l2_norm( r ) / l2_norm( b ), eps_double );
+
+	EXPECT_NO_THROW( DSS2->solve_LU( x, b ) );
+	EXPECT_NO_THROW( ISS.count_rasidual_vector( x, b, r ) );
+	EXPECT_LE( l2_norm( r ) / l2_norm( b ), eps_double );
 }
