@@ -25,10 +25,9 @@ protected:
 	filesystem::path test_dir{ "test_prints" };
 
 	virtual input_storage_scheme< T > generate_matrix() {	return generate_ISS< T >( get_mx_size(), get_mx_size(), true, get_zero_proportion(), low_val, high_val );	}
-
 	virtual size_t get_mx_size() { return 200; }
-
 	virtual size_t get_zero_proportion() { return 40; }
+	virtual DYNAMIC_STATE get_init_type() { return DYNAMIC_STATE::ROL_INIT; };
 
 	void SetUp() override
 	{
@@ -50,7 +49,7 @@ protected:
 		// permute order in input schemy as all algorithms should works independetly for order of adding
 		EXPECT_NO_THROW( permute_input_matrix_elements_test( &ISS ) );
 		// create dynamic scheme
-		EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< T > >( ISS, 2, 0.8 ) );
+		EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< T > >( ISS, 2, 0.8, get_init_type() ) );
 		// just print sparsity pattern
 		EXPECT_NO_THROW( DSS->print_sparsity_pattern( s_pattern_file.c_str() ) );
 
@@ -112,6 +111,24 @@ TYPED_TEST( non_singular_linear_equation, LU_decomposition_FillinMin_AMD )
 	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, 1, 1.0, 0.0, LD_PREPARATION::AMD ) );
 }
 
+/*
+template< typename T >
+class non_singular_linear_equation_COL_INIT : public non_singular_linear_equation< T >
+{
+protected:
+	DYNAMIC_STATE get_init_type() override { return DYNAMIC_STATE::COL_INIT; };
+};
+
+TYPED_TEST_SUITE( non_singular_linear_equation_COL_INIT, test_types );
+
+TYPED_TEST( non_singular_linear_equation_COL_INIT, QR_decomposition_sort_cols )
+{
+	// decompose A=QR using Householder alghoritm
+	//EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, 1, 1.0, 0.0, LD_PREPARATION::SORT ) );
+}
+*/
+
+
 template< typename T >
 class non_singular_linear_equation_strong_diag : public non_singular_linear_equation< T >
 {
@@ -130,21 +147,53 @@ TYPED_TEST( non_singular_linear_equation_strong_diag, SOR_iterations )
 }
 
 template< typename T >
-class small_matrix_just_for_print : public non_singular_linear_equation< T >
+class small_matrix_just_for_print_ROL : public non_singular_linear_equation< T >
 {
 protected:
-	size_t get_mx_size() override { return 10; }
-	size_t get_zero_proportion() override { return 2; }
-	void TearDown() override {}
+	virtual size_t get_mx_size() override { return 10; }
+	virtual size_t get_zero_proportion() override { return 2; }
+	virtual void TearDown() override {}
 };
 
-TYPED_TEST_SUITE( small_matrix_just_for_print, test_types );
+TYPED_TEST_SUITE( small_matrix_just_for_print_ROL, test_types );
 
-TYPED_TEST( small_matrix_just_for_print, print_matrix )
+TYPED_TEST( small_matrix_just_for_print_ROL, print_matrix )
 {
-	string s_pattern_file = test_dir.string() + "/print_scheme_test_" + to_string( g_test_id ) + ".txt";
+	string s_pattern_file = test_dir.string() + "/print_scheme_ROL_test_" + to_string( g_test_id ) + ".txt";
 	std::ofstream file( s_pattern_file.c_str() );
 	EXPECT_TRUE( file );
 	EXPECT_NO_THROW( file << *DSS );
 	file.close();
+}
+
+template< typename T >
+class small_matrix_just_for_print_COL : public small_matrix_just_for_print_ROL< T >
+{
+protected:
+	DYNAMIC_STATE get_init_type() override { return DYNAMIC_STATE::COL_INIT; };
+};
+
+TYPED_TEST_SUITE( small_matrix_just_for_print_COL, test_types );
+
+TYPED_TEST( small_matrix_just_for_print_COL, print_matrix )
+{
+	string s_pattern_file = test_dir.string() + "/print_scheme_COL_test_" + to_string( g_test_id ) + ".txt";
+	std::ofstream file( s_pattern_file.c_str() );
+	EXPECT_TRUE( file );
+	EXPECT_NO_THROW( file << *DSS );
+	file.close();
+
+
+
+	input_storage_scheme< float > ISSS( 5, 5 );
+	for( size_t i{ 0 }; i < 5; ++i )
+		for( size_t j{ 0 }; j < 5; ++j )
+			ISSS.add_element( i * 1.0 + j * 0.1, j, i );
+
+	auto DSSS = dynamic_storage_scheme< float >( ISSS, 1.0, 1.0, DYNAMIC_STATE::COL_INIT );
+	s_pattern_file = test_dir.string() + "/print_scheme_COOOOL_test_" + to_string( g_test_id ) + ".txt";
+	std::ofstream file2( s_pattern_file.c_str() );
+	EXPECT_TRUE( file2 );
+	EXPECT_NO_THROW( file2 << DSSS );
+	file2.close();
 }

@@ -504,17 +504,19 @@ private:
 	/// mostly  = min(number_of_rows, number_of_columns)
 	const size_t order;
 
+	/// array of values of the elements stored in scheme (indexed from 0)
+	std::vector< TYPE > ALU;
+
 	//============== Row-Ordered List (ROL) =============
-	size_t NROL{ 0 };		/// size of row-ordered list (not number of stored elements)
-	size_t LROL{ 0 };		/// last not free position in ROL
-	size_t CROL{ 0 };		/// number of non-zeros actualy stored in ROL (calculated control)
-	std::vector< TYPE > ALU;	/// array of values of the elements stored in scheme (indexed from 0)
+	size_t NROL{ 0 };			/// size of row-ordered list (not number of stored elements)
+	size_t LROL{ 0 };			/// last not free position in ROL
+	size_t CROL{ 0 };			/// number of non-zeros actualy stored in ROL (calculated control)
 	std::vector< int > CNLU;	/// array of column numbers of the elements stored in scheme (indexed from 0)
 
 	//=============== Column-Ordered List ===============
-	size_t NCOL{ 0 };		/// size of column-ordered list (not number of stored elements)
-	size_t LCOL{ 0 };		/// last not free position in COL
-	size_t CCOL{ 0 };		/// number of non-zeros actualy stored in COL (calculated control)
+	size_t NCOL{ 0 };			/// size of column-ordered list (not number of stored elements)
+	size_t LCOL{ 0 };			/// last not free position in COL
+	size_t CCOL{ 0 };			/// number of non-zeros actualy stored in COL (calculated control)
 	std::vector< int > RNLU;	/// array of row numbers of the elements stored in scheme (indexed from 0)
 
 	//============== INTEGRITY ARRAYS =============
@@ -2354,10 +2356,19 @@ std::ostream& operator<<( std::ostream& out,
 	// Print stored in ROL values, their column numbers and positions in ROL
 	// =====================================================================
 	out << std::endl << "(original row number, its current position):";
-	if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
+
+	switch( DSS.dynamic_state )
+	{
+	case DYNAMIC_STATE::ROL_INIT:
+	case DYNAMIC_STATE::LU_DECOMPOSED:
+	case DYNAMIC_STATE::ITERATIVE:
 		out << "[ALU,CNLU,idx],..." << std::endl;
-	else
+		break;
+	case DYNAMIC_STATE::COL_INIT:
+	case DYNAMIC_STATE::QR_DECOMPOSED:
 		out << "[CNLU,idx],..." << std::endl;
+	}
+
 	for( size_t row = 0; row < DSS.number_of_rows; row++ )
 	{
 		out << "(" << DSS.HA[ row ][ 7 ] << "," << row << "): ";
@@ -2365,10 +2376,17 @@ std::ostream& operator<<( std::ostream& out,
 			continue;
 		for( int idx = DSS.HA[ DSS.HA[ row ][ 7 ] ][ 1 ]; idx <= DSS.HA[ DSS.HA[ row ][ 7 ] ][ 3 ]; idx++ )
 		{
-			if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
+			switch( DSS.dynamic_state )
+			{
+			case DYNAMIC_STATE::ROL_INIT:
+			case DYNAMIC_STATE::LU_DECOMPOSED:
+			case DYNAMIC_STATE::ITERATIVE:
 				out << "[" << std::setw( manip_double ) << DSS.ALU[ idx ] << "," << std::setw( manip_int ) << DSS.CNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
-			else
+				break;
+			case DYNAMIC_STATE::COL_INIT:
+			case DYNAMIC_STATE::QR_DECOMPOSED:
 				out << "[" << std::setw( manip_int ) << DSS.CNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
+			}
 		}
 		out << std::endl;
 	}
@@ -2467,17 +2485,33 @@ std::ostream& operator<<( std::ostream& out,
 	// Print stored in COL values and positions in COL
 	// ===============================================
 	out << std::endl << "(original column number, its current position):";
-	if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
+
+	switch( DSS.dynamic_state )
+	{
+	case DYNAMIC_STATE::ROL_INIT:
+	case DYNAMIC_STATE::LU_DECOMPOSED:
+	case DYNAMIC_STATE::ITERATIVE:
 		out << "[RNLU,idx],..." << std::endl;
-	else
+		break;
+	case DYNAMIC_STATE::COL_INIT:
+	case DYNAMIC_STATE::QR_DECOMPOSED:
 		out << "[ALU,RNLU,idx],..." << std::endl;
+		break;
+	}
+
 	for( size_t col = 0; col < DSS.number_of_columns; col++ )
 	{
-		if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
-			out << "(" << std::setw( manip_int ) << DSS.HA[ col ][ 9 ] << "," << std::setw( manip_int ) << col << ")";
-		else
+		switch( DSS.dynamic_state )
 		{
+		case DYNAMIC_STATE::ROL_INIT:
+		case DYNAMIC_STATE::LU_DECOMPOSED:
+		case DYNAMIC_STATE::ITERATIVE:
+			out << "(" << std::setw( manip_int ) << DSS.HA[ col ][ 9 ] << "," << std::setw( manip_int ) << col << ")";
+			break;
+		case DYNAMIC_STATE::COL_INIT:
+		case DYNAMIC_STATE::QR_DECOMPOSED:
 			out << std::setw( manip_double + 1 ) << " " << "(" << std::setw( manip_int ) << DSS.HA[ col ][ 9 ] << "," << std::setw( manip_int ) << col << ")";
+			break;
 		}
 	}
 	out << std::endl;
