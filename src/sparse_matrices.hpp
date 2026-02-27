@@ -860,37 +860,6 @@ dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS,
 		}
 }
 
-//---------------------------------------------------------------------------- print_scheme_to_file
-/**
-*  Method prints scheme to file
-*  @param file_name         - [in] name of file to which scheme should be printed
-*/
-//-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::print_scheme_to_file( const char* file_name )
-{
-	std::ofstream outFile;
-
-	// Try to open/create the file
-	// ===========================
-	try
-	{
-		outFile.open( file_name );
-	} catch( std::exception )
-	{
-		logged_errors += "dynamic_storage_scheme< TYPE >::print_scheme_to_file: can not open the file: ";
-		logged_errors += std::string( file_name );
-		logged_errors += "\n";
-		outFile.close();
-		return;
-	}
-	outFile << *this;
-
-	outFile.close();
-}
-
-
-
 //-------------------------------------------------------------------------------- LU_decomposition
 /**
 *  Main functionality of the dynamic_storage_scheme, decompusition perfomed by Gauss
@@ -2241,10 +2210,399 @@ int dynamic_storage_scheme< TYPE >::count_fillin_cost( size_t index,
 	return FCOST;
 }
 
+//---------------------------------------------------------------------------- print_scheme_to_file
+/**
+*  Method prints scheme to file, there can be state of scheme in details
+*  @param file_name         - [in] name of file to which scheme should be printed
+*/
+//-------------------------------------------------------------------------------------------------
+template < typename TYPE >
+void dynamic_storage_scheme< TYPE >::print_scheme_to_file( const char* file_name )
+{
+	std::ofstream outFile;
+
+	outFile.open( file_name );
+	if( !outFile )
+		return;
+
+	const size_t manip_int = 3;
+	const size_t manip_idx = 4;
+	const size_t manip_double = 10;
+
+	outFile << "\\=================== DYNCAMIC STORAGE SCHEME ===================" << std::endl
+			<< "number of rows       :" << number_of_rows << std::endl
+			<< "number of columns    :" << number_of_columns << std::endl
+			<< "dynamic state        :";
+	switch( dynamic_state )
+	{
+	case DYNAMIC_STATE::ROL_INIT: outFile << "ROL_INIT\n\n"; break;
+	case DYNAMIC_STATE::COL_INIT: outFile << "COL_INIT\n\n"; break;
+	case DYNAMIC_STATE::ITERATIVE: outFile << "ITERATIVE\n\n"; break;
+	case DYNAMIC_STATE::LU_DECOMPOSED: outFile << "LU_DECOMPOSED\n\n"; break;
+	case DYNAMIC_STATE::QR_DECOMPOSED: outFile << "QR_DECOMPOSED\n\n"; break;
+	}
+
+	outFile << "PIVOT: [PIVOT[idx],idx]" << std::endl;
+	for( size_t i = 0; i < NHA; i++ )
+		outFile << "[" << PIVOT[ i ] << "," << i << "]";
+	outFile << std::endl << std::endl;
+	outFile << "\\----------------- ROW ORDERED LIST -----------------" << std::endl
+			<< "size of row-ordered list                  :" << NROL << std::endl
+			<< "last not free position in ROL             :" << LROL << std::endl
+			<< "number of non-zeros actualy stored in ROL :" << CROL << std::endl << std::endl;
+
+	// Print memory in usege
+	// =====================
+	outFile << "memory usage   :";
+	for( size_t Pos = 0; Pos < NROL; Pos++ )
+	{
+		if( CNLU[ Pos ] != FREE )
+			outFile << "o";
+		else
+			outFile << ".";
+	}
+	outFile << std::endl;
+
+	// Print indexes
+	// =============
+	outFile << "indexes % 1    :";
+	for( size_t Pos = 0; Pos < NROL; Pos++ )
+		outFile << Pos % 10;
+	outFile << std::endl;
+	outFile << "indexes % 10   :";
+	for( size_t Pos = 0; Pos < NROL; Pos++ )
+	{
+		if( Pos % 10 == 0 )
+			outFile << ( Pos / 10 ) % 10;
+		else
+			outFile << " ";
+	}
+	outFile << std::endl;
+
+	// Print part of integrity table responsible for ROL
+	// =================================================
+	for( size_t Index = 1; Index <= 3; Index++ )
+	{
+		// Print ROL markers
+		// =================
+		outFile << "H[.][" << Index << "] % 10   :";
+		for( size_t Pos = 0; Pos < NROL; Pos++ )
+		{
+			bool SignPrinted = false;
+			for( size_t RowNum = 0; RowNum < number_of_rows; RowNum++ )
+			{
+				if( HA[ RowNum ][ Index ] == Pos &&
+					!( Index == 2 && HA[ RowNum ][ 2 ] > HA[ RowNum ][ 3 ] && ( size_t )HA[ RowNum ][ 2 ] < NROL && CNLU[ HA[ RowNum ][ 2 ] ] != FREE ) )
+				{
+					outFile << ( RowNum % 10 );
+					SignPrinted = true;
+				}
+			}
+			if( !SignPrinted )
+				outFile << " ";
+		}
+		outFile << std::endl;
+	}
+	outFile << std::endl;
+	// Print markers
+	// =============
+	outFile << "row =   ";
+	for( size_t row = 0; row < number_of_rows; row++ )
+		outFile << std::setw( manip_idx ) << row;
+	outFile << std::endl;
+
+	// Print part of integrity table responsible for ROL
+	// =================================================
+	for( size_t Index = 1; Index <= 3; Index++ )
+	{
+		// Print ROL markers
+		// =================
+		outFile << "H[.][" << Index << "]:";
+		for( size_t row = 0; row < number_of_rows; row++ )
+			outFile << std::setw( manip_idx ) << HA[ row ][ Index ];
+		outFile << std::endl;
+	}
+
+	// Print stored in ROL values, their column numbers and positions in ROL
+	// =====================================================================
+	outFile << std::endl << "(original row number, its current position):";
+
+	switch( dynamic_state )
+	{
+	case DYNAMIC_STATE::ROL_INIT:
+	case DYNAMIC_STATE::LU_DECOMPOSED:
+	case DYNAMIC_STATE::ITERATIVE:
+		outFile << "[ALU,CNLU,idx],..." << std::endl;
+		break;
+	case DYNAMIC_STATE::COL_INIT:
+	case DYNAMIC_STATE::QR_DECOMPOSED:
+		outFile << "[CNLU,idx],..." << std::endl;
+	}
+
+	for( size_t row = 0; row < number_of_rows; row++ )
+	{
+		outFile << "(" << HA[ row ][ 7 ] << "," << row << "): ";
+		if( HA[ HA[ row ][ 7 ] ][ 1 ] == FREE || HA[ HA[ row ][ 7 ] ][ 2 ] == FREE || HA[ HA[ row ][ 7 ] ][ 3 ] == EMPTY )
+			continue;
+		for( int idx = HA[ HA[ row ][ 7 ] ][ 1 ]; idx <= HA[ HA[ row ][ 7 ] ][ 3 ]; idx++ )
+		{
+			switch( dynamic_state )
+			{
+			case DYNAMIC_STATE::ROL_INIT:
+			case DYNAMIC_STATE::LU_DECOMPOSED:
+			case DYNAMIC_STATE::ITERATIVE:
+				outFile << "[" << std::setw( manip_double ) << ALU[ idx ] << "," << std::setw( manip_int ) << CNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
+				break;
+			case DYNAMIC_STATE::COL_INIT:
+			case DYNAMIC_STATE::QR_DECOMPOSED:
+				outFile << "[" << std::setw( manip_int ) << CNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
+			}
+		}
+		outFile << std::endl;
+	}
+
+	// Print permutations of rows
+	// ==========================
+	outFile << std::endl << "row permutations:" << std::endl;
+	outFile << "         ";
+	for( size_t row = 0; row < number_of_rows; row++ )
+		outFile << std::setw( manip_int ) << row;
+	outFile << std::endl << "HA[][7]: ";
+	for( size_t row = 0; row < number_of_rows; row++ )
+		outFile << std::setw( manip_int ) << HA[ row ][ 7 ];
+	outFile << std::endl << "HA[][8]: ";
+	for( size_t row = 0; row < number_of_rows; row++ )
+		outFile << std::setw( manip_int ) << HA[ row ][ 8 ];
+
+	outFile << std::endl << std::endl;
+	outFile << "\\---------------- COLUMN ORDERED LIST ----------------" << std::endl
+			<< "size of column-ordered list               :" << NCOL << std::endl
+			<< "last not free position in COL             :" << LCOL << std::endl
+			<< "number of non-zeros actualy stored in COL :" << CCOL << std::endl << std::endl;
+
+	// Print memory in usege
+	// =====================
+	outFile << "memory usage   :";
+	for( size_t Pos = 0; Pos < NCOL; Pos++ )
+	{
+		if( RNLU[ Pos ] != FREE )
+			outFile << "o";
+		else
+			outFile << ".";
+	}
+	outFile << std::endl;
+
+	// Print indexes
+	// =============
+	outFile << "indexes % 1    :";
+	for( size_t Pos = 0; Pos < NCOL; Pos++ )
+		outFile << Pos % 10;
+	outFile << std::endl;
+	outFile << "indexes % 10   :";
+	for( size_t Pos = 0; Pos < NCOL; Pos++ )
+	{
+		if( Pos % 10 == 0 )
+			outFile << ( Pos / 10 ) % 10;
+		else
+			outFile << " ";
+	}
+	outFile << std::endl;
+
+	// Print part of integrity table responsible for COL
+	// =================================================
+	for( size_t Index = 4; Index <= 6; Index++ )
+	{
+		// Print COL markers
+		// =================
+		outFile << "H[.][" << Index << "] % 10   :";
+		for( size_t Pos = 0; Pos < NCOL; Pos++ )
+		{
+			bool SignPrinted = false;
+			for( size_t ColNum = 0; ColNum < number_of_columns; ColNum++ )
+			{
+				if( HA[ ColNum ][ Index ] == Pos &&
+					!( Index == 5 && HA[ ColNum ][ 5 ] > HA[ ColNum ][ 6 ] && ( size_t )HA[ ColNum ][ 5 ] < NCOL && RNLU[ HA[ ColNum ][ 5 ] ] != FREE ) )
+				{
+					outFile << ( ColNum % 10 );
+					SignPrinted = true;
+				}
+			}
+			if( !SignPrinted )
+				outFile << " ";
+		}
+		outFile << std::endl;
+	}
+	outFile << std::endl;
+	// Print markers
+	// =============
+	outFile << "col =   ";
+	for( size_t col = 0; col < number_of_columns; col++ )
+		outFile << std::setw( manip_idx ) << col;
+	outFile << std::endl;
+
+	// Print part of integrity table responsible for COL
+	// =================================================
+	for( size_t Index = 4; Index <= 6; Index++ )
+	{
+		// Print ROL markers
+		// =================
+		outFile << "H[.][" << Index << "]:";
+		for( size_t col = 0; col < number_of_columns; col++ )
+			outFile << std::setw( manip_idx ) << HA[ col ][ Index ];
+		outFile << std::endl;
+	}
+
+	// Print stored in COL values and positions in COL
+	// ===============================================
+	outFile << std::endl << "(original column number, its current position):";
+
+	switch( dynamic_state )
+	{
+	case DYNAMIC_STATE::ROL_INIT:
+	case DYNAMIC_STATE::LU_DECOMPOSED:
+	case DYNAMIC_STATE::ITERATIVE:
+		outFile << "[RNLU,idx],..." << std::endl;
+		break;
+	case DYNAMIC_STATE::COL_INIT:
+	case DYNAMIC_STATE::QR_DECOMPOSED:
+		outFile << "[ALU,RNLU,idx],..." << std::endl;
+		break;
+	}
+
+	for( size_t col = 0; col < number_of_columns; col++ )
+	{
+		switch( dynamic_state )
+		{
+		case DYNAMIC_STATE::ROL_INIT:
+		case DYNAMIC_STATE::LU_DECOMPOSED:
+		case DYNAMIC_STATE::ITERATIVE:
+			outFile << "(" << std::setw( manip_int ) << HA[ col ][ 9 ] << "," << std::setw( manip_int ) << col << ")";
+			break;
+		case DYNAMIC_STATE::COL_INIT:
+		case DYNAMIC_STATE::QR_DECOMPOSED:
+			outFile << std::setw( manip_double + 1 ) << " " << "(" << std::setw( manip_int ) << HA[ col ][ 9 ] << "," << std::setw( manip_int ) << col << ")";
+			break;
+		}
+	}
+	outFile << std::endl;
+
+	size_t line = 0;
+	bool print = true;
+	while( print && line < number_of_rows )
+	{
+		print = false;
+		for( size_t col = 0; col < number_of_columns; col++ )
+		{
+			if( HA[ HA[ col ][ 9 ] ][ 4 ] == FREE )
+			{
+				outFile << std::setw( 2 * manip_int + 3 ) << " ";
+				continue;
+			}
+			int idx = HA[ HA[ col ][ 9 ] ][ 4 ] + line;
+			if( idx <= HA[ HA[ col ][ 9 ] ][ 6 ] )
+			{
+				print = true;
+				if( dynamic_state != DYNAMIC_STATE::COL_INIT )
+					outFile << "[" << std::setw( manip_int ) << RNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
+				else
+					outFile << "[" << std::setw( manip_double ) << ALU[ idx ] << "," << std::setw( manip_int ) << RNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
+			}
+			else
+			{
+				if( dynamic_state != DYNAMIC_STATE::COL_INIT )
+					outFile << std::setw( 2 * manip_int + 3 ) << " ";
+				else
+					outFile << std::setw( manip_double + 2 * manip_int + 4 ) << " ";
+			}
+		}
+		outFile << std::endl;
+		line++;
+	}
+
+	// Print permutations of rows
+	// ==========================
+	outFile << std::endl << "column permutations:" << std::endl;
+	outFile << "         ";
+	for( size_t col = 0; col < number_of_columns; col++ )
+		outFile << std::setw( manip_int ) << col;
+	outFile << std::endl << "HA[][9]: ";
+	for( size_t col = 0; col < number_of_columns; col++ )
+		outFile << std::setw( manip_int ) << HA[ col ][ 9 ];
+	outFile << std::endl << "HA[][10]:";
+	for( size_t col = 0; col < number_of_columns; col++ )
+		outFile << std::setw( manip_int ) << HA[ col ][ 10 ];
+
+	// Print working parts of integrity table
+	// ======================================
+	outFile << std::endl << std::endl << "\\---------------- WORKING PART OF INTEGRITY TABLE  ----------------" << std::endl;
+	outFile << "         ";
+	for( size_t col = 0; col < number_of_columns; col++ )
+		outFile << std::setw( manip_int ) << col;
+	outFile << std::endl << "HA[][0]: ";
+	for( size_t col = 0; col < NHA; col++ )
+		outFile << std::setw( manip_int ) << HA[ col ][ 0 ];
+
+	outFile << std::endl << std::endl << "\\============================ MATRIX RECONSTRUCTION ============================";
+	if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
+	{
+		for( size_t row = 0; row < number_of_rows; row++ )
+		{
+			outFile << std::endl;
+			for( size_t col = 0; col < number_of_columns; col++ )
+			{
+				bool printed = false;
+				for( int idx = HA[ HA[ row ][ 7 ] ][ 1 ]; idx <= HA[ HA[ row ][ 7 ] ][ 3 ]; idx++ )
+				{
+					if( idx <= FREE )
+						break;
+					if( CNLU[ idx ] == HA[ col ][ 9 ] )
+					{
+						outFile << std::setw( manip_double ) << ALU[ idx ];
+						printed = true;
+						break;
+					}
+				}
+				if( !printed && row == col && std::abs( PIVOT[ row ] ) != 0 )
+					outFile << std::setw( manip_double ) << PIVOT[ row ];
+				else if( !printed )
+					outFile << std::setw( manip_double ) << 0;
+			}
+		}
+	}
+
+	if( dynamic_state == DYNAMIC_STATE::COL_INIT )
+	{
+		for( size_t row = 0; row < number_of_rows; row++ )
+		{
+			outFile << std::endl;
+			for( size_t col = 0; col < number_of_columns; col++ )
+			{
+				bool printed = false;
+				for( int idx = HA[ HA[ col ][ 9 ] ][ 4 ]; idx <= HA[ HA[ col ][ 9 ] ][ 6 ]; idx++ )
+				{
+					if( idx <= FREE )
+						break;
+					if( RNLU[ idx ] == HA[ row ][ 7 ] )
+					{
+						outFile << std::setw( manip_double ) << ALU[ idx ];
+						printed = true;
+						break;
+					}
+				}
+				if( !printed && row == col && std::abs( PIVOT[ row ] ) != 0 )
+					outFile << std::setw( manip_double ) << PIVOT[ row ];
+				else if( !printed )
+					outFile << std::setw( manip_double ) << 0;
+			}
+		}
+	}
+
+	outFile.close();
+}
+
 //-------------------------------------------------------------------------------------- operator<<
 /**
-*  Standard outstream operator is used for detailed printing scheme state
-*  It is very usefull function during developing any dynamic operation on matrix
+*  Standard outstream operator is used
 *
 *  @param out                   - [in/out] standard outstream object
 *  @param DSS                   - [in] dynamic storage scheme
@@ -2255,353 +2613,7 @@ std::ostream& operator<<( std::ostream& out,
 	const dynamic_storage_scheme< TYPE2>& DSS
 	)
 {
-	const size_t manip_int = 3;
-	const size_t manip_idx = 4;
-	const size_t manip_double = 10;
-
-	out << "\\=================== DYNCAMIC STORAGE SCHEME ===================" << std::endl
-		<< "number of rows       :" << DSS.number_of_rows << std::endl
-		<< "number of columns    :" << DSS.number_of_columns << std::endl
-		<< "dynamic state        :";
-	switch( DSS.dynamic_state )
-	{
-	case DYNAMIC_STATE::ROL_INIT: out << "ROL_INIT\n\n"; break;
-	case DYNAMIC_STATE::COL_INIT: out << "COL_INIT\n\n"; break;
-	case DYNAMIC_STATE::ITERATIVE: out << "ITERATIVE\n\n"; break;
-	case DYNAMIC_STATE::LU_DECOMPOSED: out << "LU_DECOMPOSED\n\n"; break;
-	case DYNAMIC_STATE::QR_DECOMPOSED: out << "QR_DECOMPOSED\n\n"; break;
-	}
-
-	out << "PIVOT: [PIVOT[idx],idx]" << std::endl;
-	for( size_t i = 0; i < DSS.NHA; i++ )
-		out << "[" << DSS.PIVOT[ i ] << "," << i << "]";
-	out << std::endl << std::endl;
-	out << "\\----------------- ROW ORDERED LIST -----------------" << std::endl
-		<< "size of row-ordered list                  :" << DSS.NROL << std::endl
-		<< "last not free position in ROL             :" << DSS.LROL << std::endl
-		<< "number of non-zeros actualy stored in ROL :" << DSS.CROL << std::endl << std::endl;
-
-	// Print memory in usege
-	// =====================
-	out << "memory usage   :";
-	for( size_t Pos = 0; Pos < DSS.NROL; Pos++ )
-	{
-		if( DSS.CNLU[ Pos ] != FREE )
-			out << "o";
-		else
-			out << ".";
-	}
-	out << std::endl;
-
-	// Print indexes
-	// =============
-	out << "indexes % 1    :";
-	for( size_t Pos = 0; Pos < DSS.NROL; Pos++ )
-		out << Pos % 10;
-	out << std::endl;
-	out << "indexes % 10   :";
-	for( size_t Pos = 0; Pos < DSS.NROL; Pos++ )
-	{
-		if( Pos % 10 == 0 )
-			out << ( Pos / 10 ) % 10;
-		else
-			out << " ";
-	}
-	out << std::endl;
-
-	// Print part of integrity table responsible for ROL
-	// =================================================
-	for( size_t Index = 1; Index <= 3; Index++ )
-	{
-		// Print ROL markers
-		// =================
-		out << "H[.][" << Index << "] % 10   :";
-		for( size_t Pos = 0; Pos < DSS.NROL; Pos++ )
-		{
-			bool SignPrinted = false;
-			for( size_t RowNum = 0; RowNum < DSS.number_of_rows; RowNum++ )
-			{
-				if( DSS.HA[ RowNum ][ Index ] == Pos &&
-					!( Index == 2 && DSS.HA[ RowNum ][ 2 ] > DSS.HA[ RowNum ][ 3 ] && ( size_t )DSS.HA[ RowNum ][ 2 ] < DSS.NROL && DSS.CNLU[ DSS.HA[ RowNum ][ 2 ] ] != FREE ) )
-				{
-					out << ( RowNum % 10 );
-					SignPrinted = true;
-				}
-			}
-			if( !SignPrinted )
-				out << " ";
-		}
-		out << std::endl;
-	}
-	out << std::endl;
-	// Print markers
-	// =============
-	out << "row =   ";
-	for( size_t row = 0; row < DSS.number_of_rows; row++ )
-		out << std::setw( manip_idx ) << row;
-	out << std::endl;
-
-	// Print part of integrity table responsible for ROL
-	// =================================================
-	for( size_t Index = 1; Index <= 3; Index++ )
-	{
-		// Print ROL markers
-		// =================
-		out << "H[.][" << Index << "]:";
-		for( size_t row = 0; row < DSS.number_of_rows; row++ )
-			out << std::setw( manip_idx ) << DSS.HA[ row ][ Index ];
-		out << std::endl;
-	}
-
-	// Print stored in ROL values, their column numbers and positions in ROL
-	// =====================================================================
-	out << std::endl << "(original row number, its current position):";
-
-	switch( DSS.dynamic_state )
-	{
-	case DYNAMIC_STATE::ROL_INIT:
-	case DYNAMIC_STATE::LU_DECOMPOSED:
-	case DYNAMIC_STATE::ITERATIVE:
-		out << "[ALU,CNLU,idx],..." << std::endl;
-		break;
-	case DYNAMIC_STATE::COL_INIT:
-	case DYNAMIC_STATE::QR_DECOMPOSED:
-		out << "[CNLU,idx],..." << std::endl;
-	}
-
-	for( size_t row = 0; row < DSS.number_of_rows; row++ )
-	{
-		out << "(" << DSS.HA[ row ][ 7 ] << "," << row << "): ";
-		if( DSS.HA[ DSS.HA[ row ][ 7 ] ][ 1 ] == FREE || DSS.HA[ DSS.HA[ row ][ 7 ] ][ 2 ] == FREE || DSS.HA[ DSS.HA[ row ][ 7 ] ][ 3 ] == EMPTY )
-			continue;
-		for( int idx = DSS.HA[ DSS.HA[ row ][ 7 ] ][ 1 ]; idx <= DSS.HA[ DSS.HA[ row ][ 7 ] ][ 3 ]; idx++ )
-		{
-			switch( DSS.dynamic_state )
-			{
-			case DYNAMIC_STATE::ROL_INIT:
-			case DYNAMIC_STATE::LU_DECOMPOSED:
-			case DYNAMIC_STATE::ITERATIVE:
-				out << "[" << std::setw( manip_double ) << DSS.ALU[ idx ] << "," << std::setw( manip_int ) << DSS.CNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
-				break;
-			case DYNAMIC_STATE::COL_INIT:
-			case DYNAMIC_STATE::QR_DECOMPOSED:
-				out << "[" << std::setw( manip_int ) << DSS.CNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
-			}
-		}
-		out << std::endl;
-	}
-
-	// Print permutations of rows
-	// ==========================
-	out << std::endl << "row permutations:" << std::endl;
-	out << "         ";
-	for( size_t row = 0; row < DSS.number_of_rows; row++ )
-		out << std::setw( manip_int ) << row;
-	out << std::endl << "HA[][7]: ";
-	for( size_t row = 0; row < DSS.number_of_rows; row++ )
-		out << std::setw( manip_int ) << DSS.HA[ row ][ 7 ];
-	out << std::endl << "HA[][8]: ";
-	for( size_t row = 0; row < DSS.number_of_rows; row++ )
-		out << std::setw( manip_int ) << DSS.HA[ row ][ 8 ];
-
-	out << std::endl << std::endl;
-	out << "\\---------------- COLUMN ORDERED LIST ----------------" << std::endl
-		<< "size of column-ordered list               :" << DSS.NCOL << std::endl
-		<< "last not free position in COL             :" << DSS.LCOL << std::endl
-		<< "number of non-zeros actualy stored in COL :" << DSS.CCOL << std::endl << std::endl;
-
-	// Print memory in usege
-	// =====================
-	out << "memory usage   :";
-	for( size_t Pos = 0; Pos < DSS.NCOL; Pos++ )
-	{
-		if( DSS.RNLU[ Pos ] != FREE )
-			out << "o";
-		else
-			out << ".";
-	}
-	out << std::endl;
-
-	// Print indexes
-	// =============
-	out << "indexes % 1    :";
-	for( size_t Pos = 0; Pos < DSS.NCOL; Pos++ )
-		out << Pos % 10;
-	out << std::endl;
-	out << "indexes % 10   :";
-	for( size_t Pos = 0; Pos < DSS.NCOL; Pos++ )
-	{
-		if( Pos % 10 == 0 )
-			out << ( Pos / 10 ) % 10;
-		else
-			out << " ";
-	}
-	out << std::endl;
-
-	// Print part of integrity table responsible for COL
-	// =================================================
-	for( size_t Index = 4; Index <= 6; Index++ )
-	{
-		// Print COL markers
-		// =================
-		out << "H[.][" << Index << "] % 10   :";
-		for( size_t Pos = 0; Pos < DSS.NCOL; Pos++ )
-		{
-			bool SignPrinted = false;
-			for( size_t ColNum = 0; ColNum < DSS.number_of_columns; ColNum++ )
-			{
-				if( DSS.HA[ ColNum ][ Index ] == Pos &&
-					!( Index == 5 && DSS.HA[ ColNum ][ 5 ] > DSS.HA[ ColNum ][ 6 ] && ( size_t )DSS.HA[ ColNum ][ 5 ] < DSS.NCOL && DSS.RNLU[ DSS.HA[ ColNum ][ 5 ] ] != FREE ) )
-				{
-					out << ( ColNum % 10 );
-					SignPrinted = true;
-				}
-			}
-			if( !SignPrinted )
-				out << " ";
-		}
-		out << std::endl;
-	}
-	out << std::endl;
-	// Print markers
-	// =============
-	out << "col =   ";
-	for( size_t col = 0; col < DSS.number_of_columns; col++ )
-		out << std::setw( manip_idx ) << col;
-	out << std::endl;
-
-	// Print part of integrity table responsible for COL
-	// =================================================
-	for( size_t Index = 4; Index <= 6; Index++ )
-	{
-		// Print ROL markers
-		// =================
-		out << "H[.][" << Index << "]:";
-		for( size_t col = 0; col < DSS.number_of_columns; col++ )
-			out << std::setw( manip_idx ) << DSS.HA[ col ][ Index ];
-		out << std::endl;
-	}
-
-	// Print stored in COL values and positions in COL
-	// ===============================================
-	out << std::endl << "(original column number, its current position):";
-
-	switch( DSS.dynamic_state )
-	{
-	case DYNAMIC_STATE::ROL_INIT:
-	case DYNAMIC_STATE::LU_DECOMPOSED:
-	case DYNAMIC_STATE::ITERATIVE:
-		out << "[RNLU,idx],..." << std::endl;
-		break;
-	case DYNAMIC_STATE::COL_INIT:
-	case DYNAMIC_STATE::QR_DECOMPOSED:
-		out << "[ALU,RNLU,idx],..." << std::endl;
-		break;
-	}
-
-	for( size_t col = 0; col < DSS.number_of_columns; col++ )
-	{
-		switch( DSS.dynamic_state )
-		{
-		case DYNAMIC_STATE::ROL_INIT:
-		case DYNAMIC_STATE::LU_DECOMPOSED:
-		case DYNAMIC_STATE::ITERATIVE:
-			out << "(" << std::setw( manip_int ) << DSS.HA[ col ][ 9 ] << "," << std::setw( manip_int ) << col << ")";
-			break;
-		case DYNAMIC_STATE::COL_INIT:
-		case DYNAMIC_STATE::QR_DECOMPOSED:
-			out << std::setw( manip_double + 1 ) << " " << "(" << std::setw( manip_int ) << DSS.HA[ col ][ 9 ] << "," << std::setw( manip_int ) << col << ")";
-			break;
-		}
-	}
-	out << std::endl;
-
-	size_t line = 0;
-	bool print = true;
-	while( print && line < DSS.number_of_rows )
-	{
-		print = false;
-		for( size_t col = 0; col < DSS.number_of_columns; col++ )
-		{
-			if( DSS.HA[ DSS.HA[ col ][ 9 ] ][ 4 ] == FREE )
-			{
-				out << std::setw( 2 * manip_int + 3 ) << " ";
-				continue;
-			}
-			int idx = DSS.HA[ DSS.HA[ col ][ 9 ] ][ 4 ] + line;
-			if( idx <= DSS.HA[ DSS.HA[ col ][ 9 ] ][ 6 ] )
-			{
-				print = true;
-				if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
-					out << "[" << std::setw( manip_int ) << DSS.RNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
-				else
-					out << "[" << std::setw( manip_double ) << DSS.ALU[ idx ] << "," << std::setw( manip_int ) << DSS.RNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
-			}
-			else
-			{
-				if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
-					out << std::setw( 2 * manip_int + 3 ) << " ";
-				else
-					out << std::setw( manip_double + 2 * manip_int + 4 ) << " ";
-			}
-		}
-		out << std::endl;
-		line++;
-	}
-
-	// Print permutations of rows
-	// ==========================
-	out << std::endl << "column permutations:" << std::endl;
-	out << "         ";
-	for( size_t col = 0; col < DSS.number_of_columns; col++ )
-		out << std::setw( manip_int ) << col;
-	out << std::endl << "HA[][9]: ";
-	for( size_t col = 0; col < DSS.number_of_columns; col++ )
-		out << std::setw( manip_int ) << DSS.HA[ col ][ 9 ];
-	out << std::endl << "HA[][10]:";
-	for( size_t col = 0; col < DSS.number_of_columns; col++ )
-		out << std::setw( manip_int ) << DSS.HA[ col ][ 10 ];
-
-	// Print working parts of integrity table
-	// ======================================
-	out << std::endl << std::endl << "\\---------------- WORKING PART OF INTEGRITY TABLE  ----------------" << std::endl;
-	out << "         ";
-	for( size_t col = 0; col < DSS.number_of_columns; col++ )
-		out << std::setw( manip_int ) << col;
-	out << std::endl << "HA[][0]: ";
-	for( size_t col = 0; col < DSS.NHA; col++ )
-		out << std::setw( manip_int ) << DSS.HA[ col ][ 0 ];
-
-	out << std::endl << std::endl << "\\============================ MATRIX RECONSTRUCTION ============================";
-	if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
-	{
-		for( size_t row = 0; row < DSS.number_of_rows; row++ )
-		{
-			out << std::endl;
-			for( size_t col = 0; col < DSS.number_of_columns; col++ )
-			{
-				bool printed = false;
-				for( int idx = DSS.HA[ DSS.HA[ row ][ 7 ] ][ 1 ]; idx <= DSS.HA[ DSS.HA[ row ][ 7 ] ][ 3 ]; idx++ )
-				{
-					if( idx <= FREE )
-						break;
-					if( DSS.CNLU[ idx ] == DSS.HA[ col ][ 9 ] )
-					{
-						out << std::setw( manip_double ) << DSS.ALU[ idx ];
-						printed = true;
-						break;
-					}
-				}
-				if( !printed && row == col && std::abs( DSS.PIVOT[ row ] ) != 0 )
-					out << std::setw( manip_double ) << DSS.PIVOT[ row ];
-				else if( !printed )
-					out << std::setw( manip_double ) << 0;
-			}
-		}
-	}
-	else
-	{
-	}
+	// empty so far
 
 	return out;
 }

@@ -12,6 +12,7 @@ constexpr double eps_double{ 1e-10 };
 
 static size_t g_test_id{ 0 };
 
+
 template< typename T >
 class non_singular_linear_equation : public ::testing::Test
 {
@@ -111,6 +112,7 @@ TYPED_TEST( non_singular_linear_equation, LU_decomposition_FillinMin_AMD )
 	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, 1, 1.0, 0.0, LD_PREPARATION::AMD ) );
 }
 
+
 /*
 template< typename T >
 class non_singular_linear_equation_COL_INIT : public non_singular_linear_equation< T >
@@ -146,6 +148,7 @@ TYPED_TEST( non_singular_linear_equation_strong_diag, SOR_iterations )
 	EXPECT_NO_THROW( DSS->iterative_preparation() );
 }
 
+
 template< typename T >
 class small_matrix_just_for_print_ROL : public non_singular_linear_equation< T >
 {
@@ -166,6 +169,7 @@ TYPED_TEST( small_matrix_just_for_print_ROL, print_matrix )
 	file.close();
 }
 
+
 template< typename T >
 class small_matrix_just_for_print_COL : public small_matrix_just_for_print_ROL< T >
 {
@@ -178,22 +182,5 @@ TYPED_TEST_SUITE( small_matrix_just_for_print_COL, test_types );
 TYPED_TEST( small_matrix_just_for_print_COL, print_matrix )
 {
 	string s_pattern_file = test_dir.string() + "/print_scheme_COL_test_" + to_string( g_test_id ) + ".txt";
-	std::ofstream file( s_pattern_file.c_str() );
-	EXPECT_TRUE( file );
-	EXPECT_NO_THROW( file << *DSS );
-	file.close();
-
-
-
-	input_storage_scheme< float > ISSS( 5, 5 );
-	for( size_t i{ 0 }; i < 5; ++i )
-		for( size_t j{ 0 }; j < 5; ++j )
-			ISSS.add_element( i * 1.0 + j * 0.1, j, i );
-
-	auto DSSS = dynamic_storage_scheme< float >( ISSS, 1.0, 1.0, DYNAMIC_STATE::COL_INIT );
-	s_pattern_file = test_dir.string() + "/print_scheme_COOOOL_test_" + to_string( g_test_id ) + ".txt";
-	std::ofstream file2( s_pattern_file.c_str() );
-	EXPECT_TRUE( file2 );
-	EXPECT_NO_THROW( file2 << DSSS );
-	file2.close();
+	DSS->print_scheme_to_file( s_pattern_file.c_str() );
 }
