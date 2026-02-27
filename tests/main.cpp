@@ -113,12 +113,17 @@ TYPED_TEST( non_singular_linear_equation, LU_decomposition_FillinMin_AMD )
 }
 
 
-/*
+
+
+
 template< typename T >
 class non_singular_linear_equation_COL_INIT : public non_singular_linear_equation< T >
 {
 protected:
+	size_t get_mx_size() override { return 8; }
+	size_t get_zero_proportion() override { return 3; }
 	DYNAMIC_STATE get_init_type() override { return DYNAMIC_STATE::COL_INIT; };
+	void TearDown() override {};
 };
 
 TYPED_TEST_SUITE( non_singular_linear_equation_COL_INIT, test_types );
@@ -126,9 +131,12 @@ TYPED_TEST_SUITE( non_singular_linear_equation_COL_INIT, test_types );
 TYPED_TEST( non_singular_linear_equation_COL_INIT, QR_decomposition_sort_cols )
 {
 	// decompose A=QR using Householder alghoritm
-	//EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, 1, 1.0, 0.0, LD_PREPARATION::SORT ) );
+	EXPECT_NO_THROW( DSS->QR_decomposition( LD_PREPARATION::AMD ) );
+
 }
-*/
+
+
+
 
 
 template< typename T >
@@ -163,10 +171,7 @@ TYPED_TEST_SUITE( small_matrix_just_for_print_ROL, test_types );
 TYPED_TEST( small_matrix_just_for_print_ROL, print_matrix )
 {
 	string s_pattern_file = test_dir.string() + "/print_scheme_ROL_test_" + to_string( g_test_id ) + ".txt";
-	std::ofstream file( s_pattern_file.c_str() );
-	EXPECT_TRUE( file );
-	EXPECT_NO_THROW( file << *DSS );
-	file.close();
+	DSS->print_scheme_to_file( s_pattern_file.c_str() );
 }
 
 

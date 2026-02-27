@@ -521,7 +521,10 @@ private:
 
 	//============== INTEGRITY ARRAYS =============
 	size_t NHA{ 0 };			/// size of integrity arrays
-	std::vector< TYPE > PIVOT;	/// table of pivots
+	std::vector< TYPE > VFIRST; /// first non zero elemnt in v - reflector 
+	std::vector< TYPE > PIVOT;	/// table of pivots for LU decomposition 
+								/// BETAS: 2/vTv in QR decomposition 
+								/// ITARATIVE (SOR) state also uses it
 
 	std::vector< std::vector< int > > HA;	/// Array of pointers and permutations
 	/**
@@ -565,10 +568,14 @@ public:
 	void clear_logged_errors( void ) { logged_errors.clear(); }
 	/// Method to dump the contents of the schema
 	void print_scheme_to_file( const char* file_name );
-	/// Method used for decomposition of matrix (Gauss elimination)
+	/// Method used for LU decomposition of matrix (Gauss elimination)
 	void LU_decomposition( PIVOTAL_STRATEGY strategy, size_t _search, double _mult, double eps, LD_PREPARATION pre_sort = LD_PREPARATION::NONE );
 	/// Method solves LU problem (LU_decomposition is needed to call before)
-	void solve_LU( std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >* y = NULL )const;
+	void solve_LU( std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >* y = NULL ) const;
+	/// Method used for QR decomposition of matrix (Householder)
+	void QR_decomposition( LD_PREPARATION pre_sort = LD_PREPARATION::SORT );
+	/// Method solves LU problem (LU_decomposition is needed to call before)
+	void solve_QR( std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >* y = NULL ) const;
 	/// Method improves the accuracy of the solution
 	void iterative_refinement( const input_storage_scheme< TYPE >& ISS, std::vector< TYPE >& x, const std::vector< TYPE >& b, const double acc, const size_t max_it ) const;
 	/// Method prepares matrix to SOR iterations
@@ -594,7 +601,7 @@ private:
 	/// Function permuts row lying on pos1 position with row lying on pos2 position
 	void permute_rows( size_t pos1, size_t pos2 );
 	/// Function permuts column lying on pos1 position with column lying on pos2 position
-	void permute_columns( size_t pos1, size_t pos2 );
+	void permute_cols( size_t pos1, size_t pos2 );
 	/// Function use to storing fillins in row ordered list, params row and col are current position in matrix
 	STORING_STATUS store_fillin_ROL( TYPE val, int row, int col, bool garbage_on = true );
 	/// Function performs the organize of the elements in a compact structure in ROL
@@ -605,6 +612,8 @@ private:
 	void garbage_collection_in_COL( void );
 	/// Method brings the choosen element on choosen row to begin of active part of it and incress active begine pointer (so element is inactive)
 	void deactivate_element_in_ROL( size_t index, size_t row );
+	/// Method brings the choosen element on choosen col to begin of active part of it and incress active begine pointer (so element is inactive)
+	void deactivate_element_in_COL( size_t index, size_t col );
 	/// Method switch last element with the specified and sets FREE to cuurent last and decrease end row pointer
 	void eliminate_element_in_ROL( size_t index, size_t row );
 	/// Method switch last element with the specified and sets FREE to cuurent last and decrease end row pointer
@@ -621,10 +630,13 @@ private:
 
 	/// Quick sort method for sorting rows
 	void sort_rows( int l = 0, int r = 0 );
+	/// Quick sort method for sorting columns
+	void sort_cols( int l = 0, int r = 0 );
 	/// rows aproximated minimal degree
 	void sort_rows_ROWAMD();
-	/// Method counts the fillin cost in assumption that specified element was choosen as a pivot
-	int count_fillin_cost( size_t index, size_t row );
+	/// columns aproximated minimal degree
+	void sort_cols_COLAMD();
+
 
 	//=============== FRIEND FUNCTIONS ===============
 	/// Definition of basic out_stream operator
@@ -1058,6 +1070,7 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 *                                 function allocates it and deletes by self
 *
 *  @throw exception             - when matrix is not decomponed or matrix is not square
+*                                 or wrong dynamic state
 */
 //------------------------------------------------------------------------------------------------------
 template < typename TYPE >
@@ -1104,6 +1117,103 @@ void dynamic_storage_scheme< TYPE >::solve_LU( std::vector< TYPE >& x,
 			x[ col ] -= ALU[ idx ] * x[ CNLU[ idx ] ];
 		x[ col ] /= PIVOT[ row ];
 	}
+}
+
+//-------------------------------------------------------------------------------- QR_decomposition
+/**
+*  Main functionality of the dynamic_storage_scheme, decompusition perfomed by Householder algorithm
+*  the rsults are factors Q (ortogonal/unitar) and R (upper triangular) - both store at one schem "in situ"
+
+*  @param pre_sort - (default = NONE) - [in] flag indicating if pre row sorting / aprox min degree
+*                                        should be performed
+*  @throw exception                    - when matrix is not square, singular or there is not
+*                                        enough memory in ROL/COL
+*/
+//-------------------------------------------------------------------------------------------------
+template < typename TYPE >
+void dynamic_storage_scheme< TYPE >::QR_decomposition( LD_PREPARATION pre_sort )
+{
+	if( dynamic_state != DYNAMIC_STATE::COL_INIT )
+		throw std::exception( "dynamic_storage_scheme< TYPE >::QR_decomposition: COL_INIT state is required\n" );
+
+	if( number_of_columns != number_of_rows )
+		throw std::exception( "dynamic_storage_scheme< TYPE >::QR_decomposition: matrix is not squared" );
+
+	using real_t = real_type< TYPE >::type;
+
+	VFIRST.resize( NHA, TYPE{ 0 } );
+
+	const int N = ( int )number_of_rows - 1;
+
+	if( pre_sort == LD_PREPARATION::SORT )
+		sort_cols();
+	else if( pre_sort == LD_PREPARATION::AMD )
+		sort_cols_COLAMD();
+
+	// main loop, over all stages of elimination
+	// =========================================
+	for( int stage = 0; stage < N; ++stage )
+	{
+		const int orig_col = HA[ stage ][ 9 ];
+		int srow_idx{ FREE };
+
+		double col_norm{ 0.0 };
+		for( int r_idx{ HA[ orig_col ][ 5 ] }; r_idx <= HA[ orig_col ][ 6 ]; ++r_idx )
+		{
+			double abs_v = abs_val( ALU[ r_idx ] );
+			col_norm += abs_v * abs_v;
+			if( RNLU[ r_idx ] == stage )
+				srow_idx = r_idx;
+		}
+		col_norm = std::sqrt( col_norm );
+
+		TYPE alpha = ( srow_idx == FREE ? TYPE{ 0.0 } : ALU[ srow_idx ] );
+		TYPE sign = ( alpha != TYPE{ 0.0 } ? -alpha / TYPE{ static_cast< real_t >( abs_val( alpha ) ) } : TYPE{ -1 } );
+		TYPE sign_norm = sign * TYPE{ static_cast< real_t >( col_norm ) };
+
+		VFIRST[ stage ] = alpha - sign_norm;
+		if( srow_idx == FREE )
+		{
+			// fillin
+		}
+		else
+		{
+			ALU[ srow_idx ] = sign_norm;
+			deactivate_element_in_COL( srow_idx, orig_col );
+		}
+
+		TYPE vTv{ conjugate( VFIRST[ stage ] ) * VFIRST[ stage ] };
+		// for vTv += cinf * asd
+	}
+}
+
+//--------------------------------------------------------------------------------------------- solve_QR
+/**
+*  Function solves equation QRx = b, where Q is ortogonal / unitar and R is upper triangular matrix
+*
+*  @param x                     - [out] searching solution (\in TYPE^number_of_columns)
+*  @param b                     - [in] right sight vector of solving equation (\in TYPE^number_of_rows)
+*  @param y  - (default = NULL) - [in] optional helpfull vector used to counting solution in two stages
+*                                 Ly = b and Ux = y, allocation and transmision of this parameter
+*                                 is recommended for large arrays, if y is not transmitted then
+*                                 function allocates it and deletes by self
+*
+*  @throw exception             - when matrix is not decomponed or matrix is not square
+*                                 or wrong dynamic state
+*/
+//------------------------------------------------------------------------------------------------------
+template < typename TYPE >
+void dynamic_storage_scheme< TYPE >::solve_QR( std::vector< TYPE >& x,
+	const std::vector< TYPE >& b,
+	std::vector< TYPE >* y
+) const
+{
+	if( dynamic_state != DYNAMIC_STATE::QR_DECOMPOSED )
+		throw std::exception( "dynamic_storage_scheme< TYPE >::solve_QR: QR_decomposition is needed before" );
+	if( number_of_columns != number_of_rows )
+		throw std::exception( "dynamic_storage_scheme< TYPE >::solve_QR: matrix is not squared" );
+
+	// to be continued
 }
 
 //------------------------------------------------------------------------------------------------ iterative_refinement
@@ -1286,18 +1396,9 @@ void dynamic_storage_scheme< TYPE >::print_sparsity_pattern( const char* file_na
 {
 	std::ofstream outFile;
 
-	// Try to open/create the file
-	// ===========================
-	try
-	{
-		outFile.open( file_name );
-	} catch( std::exception )
-	{
-		logged_errors += "dynamic_storage_scheme< TYPE >::print_sparsity_pattern: can not open the file";
-		logged_errors += std::string( file_name );
-		outFile.close();
+	outFile.open( file_name );
+	if( !outFile )
 		return;
-	}
 
 	for( size_t row = 0; row < number_of_rows; row++ )
 	{
@@ -1319,8 +1420,6 @@ void dynamic_storage_scheme< TYPE >::print_sparsity_pattern( const char* file_na
 
 	outFile.close();
 }
-
-
 
 //***********************************************************************************************//
 //                                     PRIVATE MEMBER FUNCTIONS                                  //
@@ -1351,7 +1450,7 @@ inline void dynamic_storage_scheme< TYPE >::permute_rows( size_t pos1,
 	std::swap( HA[ pos1 ][ 7 ], HA[ pos2 ][ 7 ] );
 }
 
-//--------------------------------------------------------------------------------- permute_columns
+//--------------------------------------------------------------------------------- permute_cols
 /**
 *  Functions permutes columns that are acctualy on pos1 and pos2 positions
 *
@@ -1360,7 +1459,7 @@ inline void dynamic_storage_scheme< TYPE >::permute_rows( size_t pos1,
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-inline void dynamic_storage_scheme< TYPE >::permute_columns( size_t pos1,
+inline void dynamic_storage_scheme< TYPE >::permute_cols( size_t pos1,
 	size_t pos2
 )
 {
@@ -1368,7 +1467,7 @@ inline void dynamic_storage_scheme< TYPE >::permute_columns( size_t pos1,
 		return;
 
 	if( pos1 >= number_of_columns || pos2 >= number_of_columns )
-		throw std::out_of_range( "dynamic_storage_scheme< TYPE >::permute_columns: values out of range" );
+		throw std::out_of_range( "dynamic_storage_scheme< TYPE >::permute_cols: values out of range" );
 
 	HA[ HA[ pos1 ][ 9 ] ][ 10 ] = pos2;
 	HA[ HA[ pos2 ][ 9 ] ][ 10 ] = pos1;
@@ -1777,19 +1876,37 @@ void dynamic_storage_scheme< TYPE >::garbage_collection_in_COL( void )
 *  Function bring choosen element to inactive part of specified row package
 *
 *  @param index                - [in] index in ROL of element we wont to deactive
-*  @param row                  - [in] row-package of speccified element
+*  @param row                  - [in] row-package of specified element
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-inline void dynamic_storage_scheme< TYPE >::deactivate_element_in_ROL( size_t index,
-	size_t row
-)
+inline void dynamic_storage_scheme< TYPE >::deactivate_element_in_ROL( size_t index, size_t row )
 {
-	std::swap( ALU[ index ], ALU[ HA[ row ][ 2 ] ] );
 	std::swap( CNLU[ index ], CNLU[ HA[ row ][ 2 ] ] );
+	if ( dynamic_state == DYNAMIC_STATE::ROL_INIT )
+		std::swap( ALU[ index ], ALU[ HA[ row ][ 2 ] ] );
 
-	HA[ row ][ 2 ]++;
+	++HA[ row ][ 2 ];
 }
+
+//----------------------------------------------------------------------- deactivate_element_in_COL
+/**
+*  Function bring choosen element to inactive part of specified col package
+*
+*  @param index                - [in] index in COL of element we wont to deactive
+*  @param col                  - [in] col-package of specified element
+*/
+//-------------------------------------------------------------------------------------------------
+template < typename TYPE >
+inline void dynamic_storage_scheme< TYPE >::deactivate_element_in_COL( size_t index, size_t col )
+{
+	std::swap( RNLU[ index ], RNLU[ HA[ col ][ 5 ] ] );
+	if( dynamic_state == DYNAMIC_STATE::COL_INIT )
+		std::swap( ALU[ index ], ALU[ HA[ col ][ 5 ] ] );
+
+	++HA[ col ][ 5 ];
+}
+
 //------------------------------------------------------------------------ eliminate_element_in_ROL
 /**
 *  Function deletes choosen element from specified row-package
@@ -1938,7 +2055,7 @@ void dynamic_storage_scheme< TYPE >::choose_pivot_by_ONE_ROW_SEARCHING( size_t s
 	}
 	// bring element to position (stage, stage)
 	// ========================================
-	permute_columns( HA[ CNLU[ INDEX ] ][ 10 ], stage );
+	permute_cols( HA[ CNLU[ INDEX ] ][ 10 ], stage );
 
 	// store pivot and free position in ROL
 	// ====================================
@@ -2032,7 +2149,7 @@ void dynamic_storage_scheme< TYPE >::choose_pivot_by_MARKOWITZ_COST( size_t stag
 	// bring element to position (stage, stage)
 	// ========================================
 	permute_rows( ROW, stage );
-	permute_columns( HA[ CNLU[ INDEX ] ][ 10 ], stage );
+	permute_cols( HA[ CNLU[ INDEX ] ][ 10 ], stage );
 
 	// store pivot and free position in ROL
 	// ====================================
@@ -2051,9 +2168,7 @@ void dynamic_storage_scheme< TYPE >::choose_pivot_by_MARKOWITZ_COST( size_t stag
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::sort_rows( int l,
-	int r
-)
+void dynamic_storage_scheme< TYPE >::sort_rows( int l, int r )
 {
 	if( !r )
 		r = number_of_rows - 1;
@@ -2081,7 +2196,45 @@ void dynamic_storage_scheme< TYPE >::sort_rows( int l,
 		sort_rows( i, r );
 }
 
-//--------------------------------------------------------------------------------------- sort_rows
+//--------------------------------------------------------------------------------------- sort_cols
+/**
+*  Standard quick sort algorithm, used for sorting cols in not decreasing order of
+*  non-zero elements
+*
+*  @param l            - [in] left index of sorting range
+*  @param r            - [in] right index of sorting range
+*/
+//-------------------------------------------------------------------------------------------------
+template < typename TYPE >
+void dynamic_storage_scheme< TYPE >::sort_cols( int l, int r )
+{
+	if( !r )
+		r = number_of_columns - 1;
+
+	const int mid = ( l + r ) / 2;
+	const int v = HA[ HA[ mid ][ 9 ] ][ 6 ] - HA[ HA[ mid ][ 9 ] ][ 5 ];
+	int i = l,
+		j = r;
+	do
+	{
+		while( i < ( int )number_of_columns && HA[ HA[ i ][ 9 ] ][ 6 ] - HA[ HA[ i ][ 9 ] ][ 5 ] < v )
+			i++;
+		while( j >= 0 && v < HA[ HA[ j ][ 9 ] ][ 6 ] - HA[ HA[ j ][ 9 ] ][ 5 ] )
+			j--;
+		if( i <= j )
+		{
+			permute_cols( i, j );
+			i++;
+			j--;
+		}
+	} while( i < j );
+	if( l < j )
+		sort_cols( l, j );
+	if( i < r )
+		sort_cols( i, r );
+}
+
+//--------------------------------------------------------------------------------------- sort_rows_ROWAMD
 /**
 *  performs row sorting by key that is aproximated minimal degree
 *  it reduces fillins by simulating it arises during elimation
@@ -2148,66 +2301,71 @@ void dynamic_storage_scheme< TYPE >::sort_rows_ROWAMD()
 	}
 }
 
-//------------------------------------------------------------------------------- count_fillin_cost
+//--------------------------------------------------------------------------------------- sort_cols_COLAMD
 /**
-*  Method counts fillin cost on stage "stage" of elimination in assumption
-*  that specified element was choosen as a pivot
-*
-*  @param index            - [in] index of specified element in ROL
-*  @param row              - [in] original row number of specified element
-*
-*  @return                 - fillin cost of element
+*  performs cols sorting by key that is aproximated minimal degree
+*  it reduces fillins by simulating it arises during elimation
+*  and choosing potentially minimal fillin cost
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-int dynamic_storage_scheme< TYPE >::count_fillin_cost( size_t index,
-	size_t row
-)
+void dynamic_storage_scheme< TYPE >::sort_cols_COLAMD()
 {
-	size_t FCOST = 0;
-	const int col_number = CNLU[ index ];
+	if( dynamic_state != DYNAMIC_STATE::COL_INIT )
+		throw std::invalid_argument( " dynamic_storage_scheme< TYPE >::sort_cols_COLAMD - COL_INIT state reqired" );
 
-	const int row_begin = HA[ row ][ 2 ],
-		row_end = HA[ row ][ 3 ];
+	std::map< int, std::map< int, bool > > col_connections;
 
-	// mark proper positions in specjal positions HA[][0]
-	// and store potential number of fillins in one eliminated row
-	// ===========================================================
-	size_t num_elems = 0;
-	for( int idx = row_begin; idx <= row_end; ++idx )
-		if( idx != index )
-		{
-			HA[ HA[ CNLU[ idx ] ][ 10 ] ][ 0 ] = NFREE;
-			++num_elems;
-		}
-	size_t temp_fcost = num_elems;
+	for( int c{ 0 }; c < static_cast< int >( number_of_columns ); ++c )
+		col_connections[ c ] = std::map< int, bool>();
 
-	// over all eliminated rows
-	// ========================
-	const int check_col_end = HA[ col_number ][ 6 ];
-	for( int col = HA[ col_number ][ 5 ]; col <= check_col_end; ++col )
+	for( int c{ 0 }; c < static_cast< int >( number_of_columns ); ++c )
 	{
-		const int row_number = RNLU[ col ];
-		if( row_number != row )
-		{
-			const int checking_row_end = HA[ row_number ][ 3 ];
-			for( int idx = HA[ row_number ][ 2 ]; idx <= checking_row_end; ++idx )
-			{
-				const int col = CNLU[ idx ];
-				if( col != col_number && HA[ HA[ col ][ 10 ] ][ 0 ] == NFREE )
-					--temp_fcost;
-			}
-			FCOST += temp_fcost;
-			temp_fcost = num_elems;
-		}
+		std::map< int, bool > c_rows;
+
+		for( int r{ HA[ c ][ 4 ] }; r <= HA[ c ][ 6 ]; ++r )
+			c_rows[ RNLU[ r ] ] = true;
+
+		for( int cn{ c + 1 }; cn < static_cast< int >( number_of_columns ); ++cn )
+			for( int rn{ HA[ cn ][ 4 ] }; rn <= HA[ cn ][ 6 ]; ++rn )
+				if( c_rows.find( RNLU[ rn ] ) != c_rows.end() )
+				{
+					col_connections[ c ][ cn ] = true;
+					col_connections[ cn ][ c ] = true;
+				}
 	}
 
-	// clear marked positions
-	// ======================
-	for( int idx = row_begin; idx <= row_end; ++idx )
-		HA[ HA[ CNLU[ idx ] ][ 10 ] ][ 0 ] = FREE;
+	for( int c{ 0 }; c < static_cast< int >( number_of_columns ) - 1; ++c )
+	{
+		int C{ HA[ c ][ 9 ] };
+		auto min_degree{ col_connections[ C ].size() };
+		int c_min{ c };
 
-	return FCOST;
+		for( int cn{ c + 1 }; cn < static_cast< int >( number_of_columns ); ++cn )
+		{
+			int CN{ HA[ cn ][ 9 ] };
+			auto n_min_degree{ col_connections[ CN ].size() };
+
+			if( n_min_degree < min_degree )
+			{
+				min_degree = n_min_degree;
+				c_min = cn;
+			}
+		}
+
+		permute_cols( c, c_min );
+
+		C = HA[ c ][ 9 ];
+		for( const auto& [r, val] : col_connections[ C ] )
+		{
+			col_connections[ r ].erase( C );
+			for( const auto& [rn, val] : col_connections[ C ] )
+				if( rn != r )
+					col_connections[ r ][ rn ] = true;
+		}
+
+		col_connections.erase( C );
+	}
 }
 
 //---------------------------------------------------------------------------- print_scheme_to_file
