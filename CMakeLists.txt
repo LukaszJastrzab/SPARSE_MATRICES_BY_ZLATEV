@@ -25,6 +25,7 @@ enable_testing()
 add_executable( ${PROJECT_NAME}
     src/sparse_matrices.hpp
     external/utilities.cuh
+    external/dense_matrix.hpp
     tests/matrix_rand_generators.hpp
     tests/main.cpp
 )

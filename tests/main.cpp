@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 
 #include <sparse_matrices.hpp>
+#include <dense_matrix.hpp>
 #include <matrix_rand_generators.hpp>
 
 
@@ -120,6 +121,7 @@ template< typename T >
 class non_singular_linear_equation_COL_INIT : public non_singular_linear_equation< T >
 {
 protected:
+	dense_matrix< T > dmx;
 	size_t get_mx_size() override { return 8; }
 	size_t get_zero_proportion() override { return 3; }
 	DYNAMIC_STATE get_init_type() override { return DYNAMIC_STATE::COL_INIT; };
@@ -130,8 +132,14 @@ TYPED_TEST_SUITE( non_singular_linear_equation_COL_INIT, test_types );
 
 TYPED_TEST( non_singular_linear_equation_COL_INIT, QR_decomposition_sort_cols )
 {
+	dmx.init( get_mx_size(), get_mx_size() );
+	for( size_t idx{ 0 }; idx < ISS.NNZ; ++idx )
+		dmx.set_element( ISS.AORIG[ idx ], ISS.RNORIG[ idx ], ISS.CNORIG[ idx ] );
+
+	dmx.QR_decomposition();
+
 	// decompose A=QR using Householder alghoritm
-	EXPECT_NO_THROW( DSS->QR_decomposition( LD_PREPARATION::AMD ) );
+	EXPECT_NO_THROW( DSS->QR_decomposition( LD_PREPARATION::NONE ) );
 
 }
 
