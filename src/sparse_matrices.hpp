@@ -603,11 +603,11 @@ private:
 	/// Function permuts column lying on pos1 position with column lying on pos2 position
 	void permute_cols( size_t pos1, size_t pos2 );
 	/// Function use to storing fillins in row ordered list, params row and col are current position in matrix
-	STORING_STATUS store_fillin_ROL( TYPE val, int row, int col, bool garbage_on = true );
+	STORING_STATUS store_fillin_ROL( TYPE val, int row, int col, bool garbage_on );
 	/// Function performs the organize of the elements in a compact structure in ROL
 	void garbage_collection_in_ROL( void );
 	/// Function use to storing fillins in column ordered list, params row and col are current position in matrix
-	STORING_STATUS store_fillin_COL( TYPE val, int row, int col, bool garbage_on = true );
+	STORING_STATUS store_fillin_COL( TYPE val, int row, int col, bool garbage_on );
 	/// Function performs the organize of the elements in a compact structure in COL
 	void garbage_collection_in_COL( void );
 	/// Method brings the choosen element on choosen row to begin of active part of it and incress active begine pointer (so element is inactive)
@@ -998,9 +998,9 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 					TYPE fillin = -eliminator * PIVOT[ HA[ col_number ][ 10 ] ];
 					if( std::abs( fillin ) > eps )
 					{
-						if( store_fillin_ROL( fillin, eliminated_row, col_number ) == STORING_STATUS::STORING_FAIL )
+						if( store_fillin_ROL( fillin, eliminated_row, col_number, true ) == STORING_STATUS::STORING_FAIL )
 							throw std::exception( "dynamic_storage_scheme< TYPE >::LU_decomposition: not enough memory in ROL" );
-						if( store_fillin_COL( fillin, eliminated_row, col_number ) == STORING_STATUS::STORING_FAIL )
+						if( store_fillin_COL( fillin, eliminated_row, col_number, true ) == STORING_STATUS::STORING_FAIL )
 							throw std::exception( "dynamic_storage_scheme< TYPE >::LU_decomposition: not enough memory in COL" );
 						PIVOT[ HA[ col_number ][ 10 ] ] = 0;
 
