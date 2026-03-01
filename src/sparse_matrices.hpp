@@ -603,11 +603,11 @@ private:
 	/// Function permuts column lying on pos1 position with column lying on pos2 position
 	void permute_cols( size_t pos1, size_t pos2 );
 	/// Function use to storing fillins in row ordered list, params row and col are current position in matrix
-	STORING_STATUS store_fillin_ROL( TYPE val, int row, int col, bool garbage_on );
+	STORING_STATUS store_fillin_ROL( TYPE val, int row, int col, bool garbage_on, size_t* store_index = nullptr  );
 	/// Function performs the organize of the elements in a compact structure in ROL
 	void garbage_collection_in_ROL( void );
 	/// Function use to storing fillins in column ordered list, params row and col are current position in matrix
-	STORING_STATUS store_fillin_COL( TYPE val, int row, int col, bool garbage_on );
+	STORING_STATUS store_fillin_COL( TYPE val, int row, int col, bool garbage_o, size_t* store_index = nullptr );
 	/// Function performs the organize of the elements in a compact structure in COL
 	void garbage_collection_in_COL( void );
 	/// Method brings the choosen element on choosen row to begin of active part of it and incress active begine pointer (so element is inactive)
@@ -998,9 +998,9 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 					TYPE fillin = -eliminator * PIVOT[ HA[ col_number ][ 10 ] ];
 					if( std::abs( fillin ) > eps )
 					{
-						if( store_fillin_ROL( fillin, eliminated_row, col_number, true ) == STORING_STATUS::STORING_FAIL )
+						if( store_fillin_ROL( fillin, eliminated_row, col_number, true, nullptr ) == STORING_STATUS::STORING_FAIL )
 							throw std::exception( "dynamic_storage_scheme< TYPE >::LU_decomposition: not enough memory in ROL" );
-						if( store_fillin_COL( fillin, eliminated_row, col_number, true ) == STORING_STATUS::STORING_FAIL )
+						if( store_fillin_COL( fillin, eliminated_row, col_number, true, nullptr ) == STORING_STATUS::STORING_FAIL )
 							throw std::exception( "dynamic_storage_scheme< TYPE >::LU_decomposition: not enough memory in COL" );
 						PIVOT[ HA[ col_number ][ 10 ] ] = 0;
 
@@ -1485,6 +1485,7 @@ inline void dynamic_storage_scheme< TYPE >::permute_cols( size_t pos1,
 *  @param col                              - [in] column number of storing element
 *  @param garbage_on - (default = true)    - [in] flag indicating if garbage collection
 *                                            should be performed
+*  @param store_index                      - returns index in ROL of stored element
 *
 *  @return STORING_SUCCESS                 - if element was successfuly stored
 *  @return STORING_FAIL                    - if element wasn't successfuly stored
@@ -1492,10 +1493,7 @@ inline void dynamic_storage_scheme< TYPE >::permute_cols( size_t pos1,
 //-------------------------------------------------------------------------------------------------
 
 template < typename TYPE >
-STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int origRow,
-	int origCol,
-	bool garbage_on
-)
+STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int origRow, int origCol, bool garbage_on, size_t *store_index )
 {
 	// if row isn't empty
 	// ==================
@@ -1516,6 +1514,9 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 			CROL++;
 			if( ( size_t )after > LROL )
 				LROL = ( size_t )after;
+
+			if( store_index != nullptr )
+				*store_index = after;
 		}
 		// store element before row package
 		// ================================
@@ -1534,14 +1535,18 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 			HA[ origRow ][ 2 ]--;
 			HA[ origRow ][ 1 ] = before;
 			CROL++;
+
+			if( store_index != nullptr )
+				*store_index = idx;
 		}
 		// copy row package to further position
 		// ====================================
 		else if( static_cast< size_t >( after ) - before <= ( NROL - LROL - 1 ) )
 		{
-			int idx;
 			const int dist = LROL + 1 - HA[ origRow ][ 1 ];
-			for( idx = HA[ origRow ][ 1 ]; idx <= HA[ origRow ][ 3 ]; idx++ )
+
+			int idx{ HA[ origRow ][ 1 ] };
+			for( ; idx <= HA[ origRow ][ 3 ]; idx++ )
 			{
 				if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
 					ALU[ ( size_t )idx + dist ] = ALU[ idx ];
@@ -1550,15 +1555,20 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 				CNLU[ idx ] = FREE;
 			}
 
-			if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
-				ALU[ ( size_t )idx + dist ] = val;
+			idx += static_cast< size_t >( dist );
 
-			CNLU[ ( size_t )idx + dist ] = origCol;
+			if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
+				ALU[ idx ] = val;
+
+			CNLU[ idx ] = origCol;
 			HA[ origRow ][ 1 ] += dist;
 			HA[ origRow ][ 2 ] += dist;
 			HA[ origRow ][ 3 ] += ( dist + 1 );
 			CROL++;
 			LROL = ( size_t )HA[ origRow ][ 3 ];
+
+			if( store_index != nullptr )
+				*store_index = idx;
 		}
 		// else garbage collection is needed
 		// =================================
@@ -1568,7 +1578,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 		else if( garbage_on )
 		{
 			garbage_collection_in_ROL();
-			return store_fillin_ROL( val, origRow, origCol, false );
+			return store_fillin_ROL( val, origRow, origCol, false, store_index );
 		}
 		else
 		{
@@ -1580,7 +1590,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 			CNLU.insert( CNLU.end(), new_mem, FREE );
 			NROL = CNLU.size();
 
-			return store_fillin_ROL( val, origRow, origCol, true );
+			return store_fillin_ROL( val, origRow, origCol, true, store_index );
 		}
 	}
 	// in case when row is empty
@@ -1597,11 +1607,14 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 			CNLU[ idx ] = origCol;
 			CROL = 1;
 			LROL++;
+
+			if( store_index != nullptr )
+				*store_index = idx;
 		}
 		else if( garbage_on )
 		{
 			garbage_collection_in_ROL();
-			return store_fillin_ROL( val, origRow, origCol, false );
+			return store_fillin_ROL( val, origRow, origCol, false, store_index );
 		}
 		else
 		{
@@ -1613,7 +1626,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 			CNLU.insert( CNLU.end(), new_mem, FREE );
 			NROL = CNLU.size();
 
-			return store_fillin_ROL( val, origRow, origCol, true );
+			return store_fillin_ROL( val, origRow, origCol, true, store_index );
 		}
 	}
 
@@ -1682,17 +1695,14 @@ void dynamic_storage_scheme< TYPE >::garbage_collection_in_ROL( void )
 *  @param col                              - [in] column number of storing element
 *  @param garbage_on (default = true)      - [in] flag indicating if garbage collection
 *                                            should be performed
+*  @param store_index                      - returns index in COL of stored element
 *
 *  @return STORING_SUCCESS                 - if element was successfuly stored
 *  @return STORING_FAIL                    - if element wasn't successfuly stored
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val,
-	int origRow,
-	int origCol,
-	bool garbage_on
-)
+STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val, int origRow, int origCol, bool garbage_on, size_t* store_index )
 {
 	// if column isn't empty
 	// =====================
@@ -1713,6 +1723,9 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val,
 			CCOL++;
 			if( ( size_t )after > LCOL )
 				LCOL = ( size_t )after;
+
+			if( store_index != nullptr )
+				*store_index = after;
 		}
 		// store element before column package
 		// ===================================
@@ -1731,14 +1744,17 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val,
 			HA[ origCol ][ 5 ]--;
 			HA[ origCol ][ 4 ] = before;
 			CCOL++;
+
+			if( store_index != nullptr )
+				*store_index = idx;
 		}
 		// copy column package to further position
 		// =======================================
 		else if( static_cast< size_t >( after ) - before <= ( NCOL - LCOL - 1 ) )
 		{
-			int idx;
 			const int dist = LCOL + 1 - HA[ origCol ][ 4 ];
-			for( idx = HA[ origCol ][ 4 ]; idx <= HA[ origCol ][ 6 ]; idx++ )
+			int idx{ HA[ origCol ][ 4 ] };
+			for( ; idx <= HA[ origCol ][ 6 ]; idx++ )
 			{
 				if( dynamic_state == DYNAMIC_STATE::COL_INIT )
 					ALU[ ( size_t )idx + dist ] = ALU[ idx ];
@@ -1747,15 +1763,20 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val,
 				RNLU[ idx ] = FREE;
 			}
 
-			if( dynamic_state == DYNAMIC_STATE::COL_INIT )
-				ALU[ ( size_t )idx + dist ] = val;
+			idx += static_cast< size_t >( dist );
 
-			RNLU[ ( size_t )idx + dist ] = origRow;
+			if( dynamic_state == DYNAMIC_STATE::COL_INIT )
+				ALU[ idx ] = val;
+
+			RNLU[ idx ] = origRow;
 			HA[ origCol ][ 4 ] += dist;
 			HA[ origCol ][ 5 ] += dist;
 			HA[ origCol ][ 6 ] += ( dist + 1 );
 			CCOL++;
 			LCOL = ( size_t )HA[ origCol ][ 6 ];
+
+			if( store_index != nullptr )
+				*store_index = idx;
 		}
 		// else garbage collection is needed
 		// =================================
@@ -1765,7 +1786,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val,
 		else if( garbage_on )
 		{
 			garbage_collection_in_COL();
-			return store_fillin_COL( val, origRow, origCol, false );
+			return store_fillin_COL( val, origRow, origCol, false, store_index );
 		}
 		else
 		{
@@ -1777,7 +1798,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val,
 			RNLU.insert( RNLU.end(), new_mem, FREE );
 			NCOL = RNLU.size();
 
-			return store_fillin_COL( val, origRow, origCol, true );
+			return store_fillin_COL( val, origRow, origCol, true, store_index );
 		}
 	}
 	// in case when column is empty
@@ -1794,11 +1815,14 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val,
 			RNLU[ idx ] = origRow;
 			CCOL = 1;
 			LCOL++;
+
+			if( store_index != nullptr )
+				*store_index = idx;
 		}
 		else if( garbage_on )
 		{
 			garbage_collection_in_COL();
-			return store_fillin_COL( val, origRow, origCol, false );
+			return store_fillin_COL( val, origRow, origCol, false, store_index );
 		}
 		else
 		{
@@ -1810,7 +1834,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val,
 			RNLU.insert( RNLU.end(), new_mem, FREE );
 			NCOL = RNLU.size();
 
-			return store_fillin_COL( val, origRow, origCol, true );
+			return store_fillin_COL( val, origRow, origCol, true, store_index );
 		}
 	}
 
