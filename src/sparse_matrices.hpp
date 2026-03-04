@@ -570,11 +570,11 @@ public:
 	/// Method used for LU decomposition of matrix (Gauss elimination)
 	void LU_decomposition( PIVOTAL_STRATEGY strategy, size_t _search, double _mult, double eps, LD_PREPARATION pre_sort = LD_PREPARATION::NONE );
 	/// Method solves LU problem (LU_decomposition is needed to call before)
-	void solve_LU( std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >* y = NULL ) const;
+	void solve_LU( std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >* y = nullptr ) const;
 	/// Method used for QR decomposition of matrix (Householder)
 	void QR_decomposition( LD_PREPARATION pre_sort = LD_PREPARATION::SORT );
 	/// Method solves LU problem (LU_decomposition is needed to call before)
-	void solve_QR( std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >* y = NULL ) const;
+	void solve_QR( std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >* y = nullptr ) const;
 	/// Method improves the accuracy of the solution
 	void iterative_refinement( const input_storage_scheme< TYPE >& ISS, std::vector< TYPE >& x, const std::vector< TYPE >& b, const double acc, const size_t max_it ) const;
 	/// Method prepares matrix to SOR iterations
@@ -1257,6 +1257,11 @@ void dynamic_storage_scheme< TYPE >::QR_decomposition( LD_PREPARATION pre_sort )
 		}
 	}
 
+	// deactivate last element in R ( so it belongs to R )
+	// ===================================================
+	const int last_orig_col = HA[ N ][ 9 ];
+	deactivate_element_in_COL( HA[ last_orig_col ][ 5 ], last_orig_col );
+
 	dynamic_state = DYNAMIC_STATE::QR_DECOMPOSED;
 }
 
@@ -1276,17 +1281,54 @@ void dynamic_storage_scheme< TYPE >::QR_decomposition( LD_PREPARATION pre_sort )
 */
 //------------------------------------------------------------------------------------------------------
 template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::solve_QR( std::vector< TYPE >& x,
-	const std::vector< TYPE >& b,
-	std::vector< TYPE >* y
-) const
+void dynamic_storage_scheme< TYPE >::solve_QR( std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >* y ) const
 {
 	if( dynamic_state != DYNAMIC_STATE::QR_DECOMPOSED )
 		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::solve_QR: QR_decomposition is needed before" );
 	if( number_of_columns != number_of_rows )
 		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::solve_QR: matrix is not squared" );
+	if( b.size() != number_of_rows )
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::solve_QR: b.size() != number_of_rows" );
 
-	// to be continued
+	const auto N = std::min( number_of_rows - 1, number_of_columns );
+
+	std::vector< TYPE > y_alloc;
+
+	if( y == NULL )
+		y = &y_alloc;
+
+	// first y := Q^T * b = H_1 * H_2 * ... * H_k * b
+	// ==============================================
+	*y = b;
+	for( size_t step{ 0 }; step < N; ++step )
+	{
+		const int s_orig_col = HA[ step ][ 9 ];
+
+		TYPE vTb{ conjugate( VFIRST[ step ] ) * y->at( step ) };
+		for( int r_idx{ HA[ s_orig_col ][ 5 ] }; r_idx <= HA[ s_orig_col ][ 6 ]; ++r_idx )
+			vTb += conjugate( ALU[ r_idx ] ) * y->at( RNLU[ r_idx ] );
+
+		y->at( step ) -= PIVOT[ step ] * VFIRST[ step ] * vTb;
+		for( int r_idx{ HA[ s_orig_col ][ 5 ] }; r_idx <= HA[ s_orig_col ][ 6 ]; ++r_idx )
+			y->at( RNLU[ r_idx ] ) -= PIVOT[ step ] * ALU[ r_idx ] * vTb;
+	}
+
+	// then solve Rx = Q^T * b by back substitution
+	// ============================================
+	for( int c{ static_cast< int >( number_of_columns - 1 ) }; c >= 0; --c )
+	{
+		const int s_orig_col = HA[ c ][ 9 ];
+		int r_idx{ HA[ s_orig_col ][ 5 ] - 1 };
+
+		y->at( c ) /= ALU[ r_idx-- ];
+		while( r_idx >= HA[ s_orig_col ][ 4 ] )
+		{
+			y->at( RNLU[ r_idx ] ) -= ALU[ r_idx ] * y->at( c );
+			--r_idx;
+		}
+
+		x[ HA[ c ][ 9 ] ] = y->at( c );
+	}
 }
 
 //------------------------------------------------------------------------------------------------ iterative_refinement
@@ -1334,6 +1376,12 @@ void dynamic_storage_scheme< TYPE >::iterative_refinement( const input_storage_s
 		{
 		case DYNAMIC_STATE::LU_DECOMPOSED:
 			solve_LU( d, r, &y );
+			for( size_t i = 0; i < N; ++i )
+				d[ i ] = x[ i ] - d[ i ];
+			break;
+
+		case DYNAMIC_STATE::QR_DECOMPOSED:
+			solve_QR( d, r, &y );
 			for( size_t i = 0; i < N; ++i )
 				d[ i ] = x[ i ] - d[ i ];
 			break;
@@ -2969,7 +3017,7 @@ int dynamic_storage_scheme< TYPE >::check_integrity_test() const
 					break;
 				}
 			}
-			else if( CNLU[ idx ] < 0 || ALU[ idx ] == TYPE{ 0 } )
+			else if( CNLU[ idx ] < 0 )
 			{
 				out << "ROL integrity lack error in row " << row << std::endl;
 				ret_val = 2;
@@ -3184,5 +3232,6 @@ int dynamic_storage_scheme< TYPE >::check_integrity_test() const
 }
 
 #endif
+
 
 

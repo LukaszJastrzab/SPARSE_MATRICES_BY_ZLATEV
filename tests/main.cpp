@@ -2,7 +2,6 @@
 #include <gtest/gtest.h>
 
 #include <sparse_matrices.hpp>
-#include <dense_matrix.hpp>
 #include <matrix_rand_generators.hpp>
 
 
@@ -88,63 +87,59 @@ protected:
 using test_types = ::testing::Types< float, double, complex< float >, complex< double > >;
 
 TYPED_TEST_SUITE( non_singular_linear_equation, test_types );
-//
-//TYPED_TEST( non_singular_linear_equation, LU_decomposition_MarkowitzCost_NONE )
-//{
-//	// decompose A=LU using Gauss elimination
-//	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::MARKOWITZ_COST, get_mx_size(), 1.0, 0.0, LD_PREPARATION::NONE ) );
-//}
-//
-//TYPED_TEST( non_singular_linear_equation, LU_decomposition_MarkowitzCost_SORT )
-//{	
-//	// decompose A=LU using Gauss elimination
-//	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::MARKOWITZ_COST, 10, 1.0, 0.0, LD_PREPARATION::SORT ) );
-//}
-//
-//TYPED_TEST( non_singular_linear_equation, LU_decomposition_MarkowitzCost_AMD )
-//{
-//	// decompose A=LU using Gauss elimination
-//	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::MARKOWITZ_COST, 10, 1.0, 0.0, LD_PREPARATION::AMD ) );
-//}
-//
-//TYPED_TEST( non_singular_linear_equation, LU_decomposition_FillinMin_AMD )
-//{
-//	// decompose A=LU using Gauss elimination
-//	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, 1, 1.0, 0.0, LD_PREPARATION::AMD ) );
-//}
 
+TYPED_TEST( non_singular_linear_equation, LU_decomposition_MarkowitzCost_NONE )
+{
+	// decompose A=LU using Gauss elimination
+	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::MARKOWITZ_COST, get_mx_size(), 1.0, 0.0, LD_PREPARATION::NONE ) );
+}
 
+TYPED_TEST( non_singular_linear_equation, LU_decomposition_MarkowitzCost_SORT )
+{	
+	// decompose A=LU using Gauss elimination
+	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::MARKOWITZ_COST, 10, 1.0, 0.0, LD_PREPARATION::SORT ) );
+}
 
+TYPED_TEST( non_singular_linear_equation, LU_decomposition_MarkowitzCost_AMD )
+{
+	// decompose A=LU using Gauss elimination
+	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::MARKOWITZ_COST, 10, 1.0, 0.0, LD_PREPARATION::AMD ) );
+}
+
+TYPED_TEST( non_singular_linear_equation, LU_decomposition_FillinMin_AMD )
+{
+	// decompose A=LU using Gauss elimination
+	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, 1, 1.0, 0.0, LD_PREPARATION::AMD ) );
+}
 
 
 template< typename T >
 class non_singular_linear_equation_COL_INIT : public non_singular_linear_equation< T >
 {
 protected:
-	dense_matrix< T > dmx;
-	size_t get_mx_size() override { return 4; }
-	size_t get_zero_proportion() override { return 2; }
 	DYNAMIC_STATE get_init_type() override { return DYNAMIC_STATE::COL_INIT; };
-	void TearDown() override {};
 };
 
 TYPED_TEST_SUITE( non_singular_linear_equation_COL_INIT, test_types );
 
-TYPED_TEST( non_singular_linear_equation_COL_INIT, QR_decomposition_sort_cols )
+
+TYPED_TEST( non_singular_linear_equation_COL_INIT, QR_decomposition_none )
 {
-	dmx.init( get_mx_size(), get_mx_size() );
-	for( size_t idx{ 0 }; idx < ISS.NNZ; ++idx )
-		dmx.set_element( ISS.AORIG[ idx ], ISS.RNORIG[ idx ], ISS.CNORIG[ idx ] );
-
-	dmx.QR_decomposition();
-
 	// decompose A=QR using Householder alghoritm
 	EXPECT_NO_THROW( DSS->QR_decomposition( LD_PREPARATION::NONE ) );
-
 }
 
+TYPED_TEST( non_singular_linear_equation_COL_INIT, QR_decomposition_sort_cols )
+{
+	// decompose A=QR using Householder alghoritm
+	EXPECT_NO_THROW( DSS->QR_decomposition( LD_PREPARATION::SORT ) );
+}
 
-
+TYPED_TEST( non_singular_linear_equation_COL_INIT, QR_decomposition_sort_cols_amd )
+{
+	// decompose A=QR using Householder alghoritm
+	EXPECT_NO_THROW( DSS->QR_decomposition( LD_PREPARATION::AMD ) );
+}
 
 
 template< typename T >
