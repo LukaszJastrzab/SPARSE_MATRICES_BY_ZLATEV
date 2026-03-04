@@ -41,7 +41,7 @@ public:
 	const size_t order;
 
 private:
-	/// array of ORIGinal values of the input matrix A
+		/// array of ORIGinal values of the input matrix A
 	std::vector< TYPE > AORIG;
 	/// array of ORIGinal row numbers of the input matrix A (indexed from 0)
 	std::vector< int > RNORIG;
@@ -97,7 +97,6 @@ private:
 	/// 
 	template < typename TYPE >
 	friend void CheckAxb( const input_storage_scheme< TYPE >& ISS, const std::vector< TYPE >& x, std::vector< TYPE >& b );
-
 };
 //---------------------------------------------------------------------------- input_storage_scheme
 /**
@@ -266,14 +265,14 @@ void load_matrix_from_file( const char* file_name,
 		input_file.close();
 
 		// =======================================================
-		throw std::exception( "load_matrix_from_file fail: not allowed specialized function" );
+		throw std::logic_error( "load_matrix_from_file fail: not allowed specialized function" );
 		// becouse the specialization should be implemented in this particular moment :]
 	}
 	else
 	{
 		std::string error( "load_matrix_from_file fail: can not open the file: " );
 		error += std::string( file_name );
-		throw std::exception( error.c_str() );
+		throw std::runtime_error( error.c_str() );
 	}
 
 }
@@ -295,7 +294,7 @@ void load_matrix_from_file( const char* file_name,
 		input_file.close();
 		std::string error( "load_matrix_from_file fail: can not open the file " );
 		error += std::string( file_name );
-		throw std::exception( error.c_str() );
+		throw std::invalid_argument( error.c_str() );
 	}
 
 	// First of all get sizes of matrix
@@ -371,7 +370,7 @@ void load_scheme_from_file( const char* file_name,
 		input_file.close();
 		std::string error( "load_scheme_from_file fail: can not open the file " );
 		error += std::string( file_name );
-		throw std::exception( error.c_str() );
+		throw std::invalid_argument( error.c_str() );
 	}
 
 	// First of all get sizes of matrix
@@ -504,22 +503,27 @@ private:
 	/// mostly  = min(number_of_rows, number_of_columns)
 	const size_t order;
 
+	/// array of values of the elements stored in scheme (indexed from 0)
+	std::vector< TYPE > ALU;
+
 	//============== Row-Ordered List (ROL) =============
-	size_t NROL{ 0 };		/// size of row-ordered list (not number of stored elements)
-	size_t LROL{ 0 };		/// last not free position in ROL
-	size_t CROL{ 0 };		/// number of non-zeros actualy stored in ROL (calculated control)
-	std::vector< TYPE > ALU;	/// array of values of the elements stored in scheme (indexed from 0)
+	size_t NROL{ 0 };			/// size of row-ordered list (not number of stored elements)
+	size_t LROL{ 0 };			/// last not free position in ROL
+	size_t CROL{ 0 };			/// number of non-zeros actualy stored in ROL (calculated control)
 	std::vector< int > CNLU;	/// array of column numbers of the elements stored in scheme (indexed from 0)
 
 	//=============== Column-Ordered List ===============
-	size_t NCOL{ 0 };		/// size of column-ordered list (not number of stored elements)
-	size_t LCOL{ 0 };		/// last not free position in COL
-	size_t CCOL{ 0 };		/// number of non-zeros actualy stored in COL (calculated control)
+	size_t NCOL{ 0 };			/// size of column-ordered list (not number of stored elements)
+	size_t LCOL{ 0 };			/// last not free position in COL
+	size_t CCOL{ 0 };			/// number of non-zeros actualy stored in COL (calculated control)
 	std::vector< int > RNLU;	/// array of row numbers of the elements stored in scheme (indexed from 0)
 
 	//============== INTEGRITY ARRAYS =============
 	size_t NHA{ 0 };			/// size of integrity arrays
-	std::vector< TYPE > PIVOT;	/// table of pivots
+	std::vector< TYPE > VFIRST; /// first non zero elemnt in v - reflector 
+	std::vector< TYPE > PIVOT;	/// table of pivots for LU decomposition 
+								/// BETAS: 2/vTv in QR decomposition 
+								/// ITARATIVE (SOR) state also uses it
 
 	std::vector< std::vector< int > > HA;	/// Array of pointers and permutations
 	/**
@@ -548,9 +552,7 @@ private:
 	/// constant multiplier used to expand COL/ROL space due to fillins
 	const float expanding_mult{ 0.5 };
 
-
 public:
-
 	/// Constructor - input_storage_scheme require and two floats that determine sizes of storage lists
 	///               in flollowing way: NROL = mult1 * ISS->NNZ, NCOL = mult2 * NROL
 	dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS, double mult1, double mult2 = 0.7, DYNAMIC_STATE _dynamic_state = DYNAMIC_STATE::ROL_INIT );
@@ -563,10 +565,14 @@ public:
 	void clear_logged_errors( void ) { logged_errors.clear(); }
 	/// Method to dump the contents of the schema
 	void print_scheme_to_file( const char* file_name );
-	/// Method used for decomposition of matrix (Gauss elimination)
+	/// Method used for LU decomposition of matrix (Gauss elimination)
 	void LU_decomposition( PIVOTAL_STRATEGY strategy, size_t _search, double _mult, double eps, LD_PREPARATION pre_sort = LD_PREPARATION::NONE );
 	/// Method solves LU problem (LU_decomposition is needed to call before)
-	void solve_LU( std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >* y = NULL )const;
+	void solve_LU( std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >* y = nullptr ) const;
+	/// Method used for QR decomposition of matrix (Householder)
+	void QR_decomposition( LD_PREPARATION pre_sort = LD_PREPARATION::SORT );
+	/// Method solves LU problem (LU_decomposition is needed to call before)
+	void solve_QR( std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >* y = nullptr ) const;
 	/// Method improves the accuracy of the solution
 	void iterative_refinement( const input_storage_scheme< TYPE >& ISS, std::vector< TYPE >& x, const std::vector< TYPE >& b, const double acc, const size_t max_it ) const;
 	/// Method prepares matrix to SOR iterations
@@ -592,17 +598,19 @@ private:
 	/// Function permuts row lying on pos1 position with row lying on pos2 position
 	void permute_rows( size_t pos1, size_t pos2 );
 	/// Function permuts column lying on pos1 position with column lying on pos2 position
-	void permute_columns( size_t pos1, size_t pos2 );
+	void permute_cols( size_t pos1, size_t pos2 );
 	/// Function use to storing fillins in row ordered list, params row and col are current position in matrix
-	STORING_STATUS store_fillin_ROL( TYPE val, int row, int col, bool garbage_on = true );
+	STORING_STATUS store_fillin_ROL( TYPE val, int orig_row, int orig_col, bool garbage_on, size_t* store_index = nullptr );
 	/// Function performs the organize of the elements in a compact structure in ROL
 	void garbage_collection_in_ROL( void );
 	/// Function use to storing fillins in column ordered list, params row and col are current position in matrix
-	STORING_STATUS store_fillin_COL( TYPE val, int row, int col, bool garbage_on = true );
+	STORING_STATUS store_fillin_COL( TYPE val, int orig_row, int orig_col, bool garbage_o, size_t* store_index = nullptr );
 	/// Function performs the organize of the elements in a compact structure in COL
 	void garbage_collection_in_COL( void );
 	/// Method brings the choosen element on choosen row to begin of active part of it and incress active begine pointer (so element is inactive)
 	void deactivate_element_in_ROL( size_t index, size_t row );
+	/// Method brings the choosen element on choosen col to begin of active part of it and incress active begine pointer (so element is inactive)
+	void deactivate_element_in_COL( size_t index, size_t col );
 	/// Method switch last element with the specified and sets FREE to cuurent last and decrease end row pointer
 	void eliminate_element_in_ROL( size_t index, size_t row );
 	/// Method switch last element with the specified and sets FREE to cuurent last and decrease end row pointer
@@ -619,10 +627,13 @@ private:
 
 	/// Quick sort method for sorting rows
 	void sort_rows( int l = 0, int r = 0 );
+	/// Quick sort method for sorting columns
+	void sort_cols( int l = 0, int r = 0 );
 	/// rows aproximated minimal degree
 	void sort_rows_ROWAMD();
-	/// Method counts the fillin cost in assumption that specified element was choosen as a pivot
-	int count_fillin_cost( size_t index, size_t row );
+	/// columns aproximated minimal degree
+	void sort_cols_COLAMD();
+
 
 	//=============== FRIEND FUNCTIONS ===============
 	/// Definition of basic out_stream operator
@@ -682,7 +693,7 @@ dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS,
 		NROL = static_cast< size_t >( mult2 * NCOL );
 		if( NROL < NNZ ) NROL = NNZ;
 	}
-	NHA = ( number_of_rows > number_of_columns ? number_of_rows : number_of_columns );
+	NHA = std::max( number_of_rows, number_of_columns );
 
 	// Allocation of memory
 	// ====================
@@ -767,7 +778,7 @@ dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS,
 			for( int j = HA[ i ][ 1 ]; j <= HA[ i ][ 3 ]; j++ )
 			{
 				const int l = CNLU[ j ];
-				RNLU[ static_cast<size_t>( HA[ l ][ 4 ] + HA[ l ][ 6 ] ) ] = i;
+				RNLU[ static_cast< size_t >( HA[ l ][ 4 ] + HA[ l ][ 6 ] ) ] = i;
 				++HA[ l ][ 6 ];
 			}
 		}
@@ -858,37 +869,6 @@ dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS,
 		}
 }
 
-//---------------------------------------------------------------------------- print_scheme_to_file
-/**
-*  Method prints scheme to file
-*  @param file_name         - [in] name of file to which scheme should be printed
-*/
-//-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::print_scheme_to_file( const char* file_name )
-{
-	std::ofstream outFile;
-
-	// Try to open/create the file
-	// ===========================
-	try
-	{
-		outFile.open( file_name );
-	} catch( std::exception )
-	{
-		logged_errors += "dynamic_storage_scheme< TYPE >::print_scheme_to_file: can not open the file: ";
-		logged_errors += std::string( file_name );
-		logged_errors += "\n";
-		outFile.close();
-		return;
-	}
-	outFile << *this;
-
-	outFile.close();
-}
-
-
-
 //-------------------------------------------------------------------------------- LU_decomposition
 /**
 *  Main functionality of the dynamic_storage_scheme, decompusition perfomed by Gauss
@@ -917,10 +897,10 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 )
 {
 	if( dynamic_state != DYNAMIC_STATE::ROL_INIT )
-		throw std::exception( "dynamic_storage_scheme< TYPE >::LU_decomposition: ROL_INIT state is required\n" );
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::LU_decomposition: ROL_INIT state is required\n" );
 
 	if( number_of_columns != number_of_rows )
-		throw std::exception( "dynamic_storage_scheme< TYPE >::LU_decomposition: matrix is not squared" );
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::LU_decomposition: matrix is not squared" );
 
 	const double mult{ _mult > 1 && strategy != PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION ? _mult : 1 };
 	const size_t search{ strategy == PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION || _search < 1 ? 1 : _search };
@@ -947,7 +927,7 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 			break;
 		}
 		if( std::abs( PIVOT[ stage ] ) < eps )
-			throw std::exception( "dynamic_storage_scheme< TYPE >::LU_decomposition: obtained singular matrix" );
+			throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::LU_decomposition: obtained singular matrix" );
 
 		const int eliminating_row = HA[ stage ][ 7 ];
 
@@ -1015,10 +995,10 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 					TYPE fillin = -eliminator * PIVOT[ HA[ col_number ][ 10 ] ];
 					if( std::abs( fillin ) > eps )
 					{
-						if( store_fillin_ROL( fillin, eliminated_row, col_number ) == STORING_STATUS::STORING_FAIL )
-							throw std::exception( "dynamic_storage_scheme< TYPE >::LU_decomposition: not enough memory in ROL" );
-						if( store_fillin_COL( fillin, eliminated_row, col_number ) == STORING_STATUS::STORING_FAIL )
-							throw std::exception( "dynamic_storage_scheme< TYPE >::LU_decomposition: not enough memory in COL" );
+						if( store_fillin_ROL( fillin, eliminated_row, col_number, true, nullptr ) == STORING_STATUS::STORING_FAIL )
+							throw std::runtime_error( "dynamic_storage_scheme< TYPE >::LU_decomposition: not enough memory in ROL" );
+						if( store_fillin_COL( fillin, eliminated_row, col_number, true, nullptr ) == STORING_STATUS::STORING_FAIL )
+							throw std::runtime_error( "dynamic_storage_scheme< TYPE >::LU_decomposition: not enough memory in COL" );
 						PIVOT[ HA[ col_number ][ 10 ] ] = 0;
 
 						// garbage collection may change coords of eliminating row
@@ -1068,7 +1048,7 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 	// if last pivot is 0, it meens that matrix became singular
 	// ========================================================
 	if( std::abs( PIVOT[ N ] ) == 0 )
-		throw std::exception( "dynamic_storage_scheme< TYPE >::LU_decomposition: obtained singular matrix" );
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::LU_decomposition: obtained singular matrix" );
 
 	dynamic_state = DYNAMIC_STATE::LU_DECOMPOSED;
 }
@@ -1087,6 +1067,7 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 *                                 function allocates it and deletes by self
 *
 *  @throw exception             - when matrix is not decomponed or matrix is not square
+*                                 or wrong dynamic state
 */
 //------------------------------------------------------------------------------------------------------
 template < typename TYPE >
@@ -1096,9 +1077,10 @@ void dynamic_storage_scheme< TYPE >::solve_LU( std::vector< TYPE >& x,
 ) const
 {
 	if( dynamic_state != DYNAMIC_STATE::LU_DECOMPOSED )
-		throw std::exception( "dynamic_storage_scheme< TYPE >::solve_LU: LU_decomposition is needed before" );
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::solve_LU: LU_decomposition is needed before" );
 	if( number_of_columns != number_of_rows )
-		throw std::exception( "dynamic_storage_scheme< TYPE >::solve_LU: matrix is not squared" );
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::solve_LU: LU_decomposition is needed before" );
+	( "dynamic_storage_scheme< TYPE >::solve_LU: matrix is not squared" );
 
 	const size_t N = number_of_columns;
 	std::vector< TYPE > y_alloc;
@@ -1114,10 +1096,10 @@ void dynamic_storage_scheme< TYPE >::solve_LU( std::vector< TYPE >& x,
 	y->at( 0 ) = b[ HA[ 0 ][ 7 ] ];
 	for( size_t row = 1; row < N; row++ )
 	{
-		const int origRow = HA[ row ][ 7 ];
-		y->at( row ) = b[ origRow ];
+		const int orig_row = HA[ row ][ 7 ];
+		y->at( row ) = b[ orig_row ];
 		TYPE sum = 0;
-		for( int idx = HA[ origRow ][ 1 ]; idx < HA[ origRow ][ 2 ]; idx++ )
+		for( int idx = HA[ orig_row ][ 1 ]; idx < HA[ orig_row ][ 2 ]; idx++ )
 			sum += ALU[ idx ] * y->at( HA[ CNLU[ idx ] ][ 10 ] );
 		y->at( row ) -= sum;
 	}
@@ -1127,11 +1109,223 @@ void dynamic_storage_scheme< TYPE >::solve_LU( std::vector< TYPE >& x,
 	for( int row = N - 2; row >= 0; row-- )
 	{
 		const int col = HA[ row ][ 9 ];
-		const int origRow = HA[ row ][ 7 ];
+		const int orig_row = HA[ row ][ 7 ];
 		x[ col ] = y->at( row );
-		for( int idx = HA[ origRow ][ 2 ]; idx <= HA[ origRow ][ 3 ]; idx++ )
+		for( int idx = HA[ orig_row ][ 2 ]; idx <= HA[ orig_row ][ 3 ]; idx++ )
 			x[ col ] -= ALU[ idx ] * x[ CNLU[ idx ] ];
 		x[ col ] /= PIVOT[ row ];
+	}
+}
+
+//-------------------------------------------------------------------------------- QR_decomposition
+/**
+*  Main functionality of the dynamic_storage_scheme, decompusition perfomed by Householder algorithm
+*  the rsults are factors Q (ortogonal/unitar) and R (upper triangular) - both store at one schem "in situ"
+
+*  @param pre_sort - (default = NONE) - [in] flag indicating if pre row sorting / aprox min degree
+*                                        should be performed
+*  @throw exception                    - when matrix is not square, singular or there is not
+*                                        enough memory in ROL/COL
+*/
+//-------------------------------------------------------------------------------------------------
+template < typename TYPE >
+void dynamic_storage_scheme< TYPE >::QR_decomposition( LD_PREPARATION pre_sort )
+{
+	if( dynamic_state != DYNAMIC_STATE::COL_INIT )
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::QR_decomposition: COL_INIT state is required\n" );
+
+	if( number_of_columns != number_of_rows )
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::QR_decomposition: matrix is not squared" );
+
+	using real_t = real_type< TYPE >::type;
+	using pfillin = std::pair< TYPE, int >;
+
+	VFIRST.resize( NHA );
+	std::vector< TYPE > vTA( number_of_columns );
+	std::vector< int > mod_col( number_of_rows );
+
+	const int N = ( int )number_of_rows - 1;
+
+	if( pre_sort == LD_PREPARATION::SORT )
+		sort_cols();
+	else if( pre_sort == LD_PREPARATION::AMD )
+		sort_cols_COLAMD();
+
+	// main loop, over all stages of elimination
+	// =========================================
+	for( int stage = 0; stage < N; ++stage )
+	{
+		const int s_orig_col = HA[ stage ][ 9 ];
+		int srow_idx{ FREE };
+
+		memset( VFIRST.data() + stage, 0, ( VFIRST.size() - stage ) * sizeof( TYPE ) );
+
+		double col_norm{ 0.0 };
+		for( int r_idx{ HA[ s_orig_col ][ 5 ] }; r_idx <= HA[ s_orig_col ][ 6 ]; ++r_idx )
+		{
+			VFIRST[ RNLU[ r_idx ] ] = ALU[ r_idx ];
+			double abs_v = abs_val( ALU[ r_idx ] );
+			col_norm += abs_v * abs_v;
+
+			if( RNLU[ r_idx ] == stage )
+				srow_idx = r_idx;
+		}
+		col_norm = std::sqrt( col_norm );
+
+		TYPE a_ss = ( srow_idx == FREE ? TYPE{ 0.0 } : ALU[ srow_idx ] );
+		TYPE sign = ( a_ss != TYPE{ 0.0 } ? -a_ss / TYPE{ static_cast< real_t >( abs_val( a_ss ) ) } : TYPE{ -1 } );
+		TYPE sign_norm = sign * TYPE{ static_cast< real_t >( col_norm ) };
+
+		VFIRST[ stage ] = a_ss - sign_norm;
+
+		if( srow_idx == FREE )
+		{
+			size_t fillin_idx{ 0 };
+			if( store_fillin_COL( sign_norm, stage, s_orig_col, true, &fillin_idx ) == STORING_STATUS::STORING_FAIL )
+				throw std::runtime_error( "dynamic_storage_scheme< TYPE >::QR_decomposition: not enough memory in COL" );
+			deactivate_element_in_COL( fillin_idx, s_orig_col );
+		}
+		else
+		{
+			ALU[ srow_idx ] = sign_norm;
+			deactivate_element_in_COL( srow_idx, s_orig_col );
+		}
+
+		TYPE vTv{ conjugate( VFIRST[ stage ] ) * VFIRST[ stage ] };
+		for( int r_idx{ HA[ s_orig_col ][ 5 ] }; r_idx <= HA[ s_orig_col ][ 6 ]; ++r_idx )
+			vTv += conjugate( ALU[ r_idx ] ) * ALU[ r_idx ];
+
+		// under PIVOT table Householders betas are stored
+		// ===============================================
+		PIVOT[ stage ] = static_cast< real_t >( 2.0 ) / vTv;
+
+		// calculate vTA ( v*A in case of complex )
+		// ========================================
+		for( int c{ stage + 1 }; c < number_of_columns; ++c )
+		{
+			vTA[ c ] = TYPE{};
+			const int c_orig_col = HA[ c ][ 9 ];
+			for( int r_idx{ HA[ c_orig_col ][ 5 ] }; r_idx <= HA[ c_orig_col ][ 6 ]; ++r_idx )
+				vTA[ c ] += conjugate( VFIRST[ RNLU[ r_idx ] ] ) * ALU[ r_idx ];
+		}
+
+		// calculate (I-bvvT)A = A - b(v(vTA))
+		// ===================================
+		for( int c{ stage + 1 }; c < number_of_columns; ++c )
+		{
+			const int c_orig_col = HA[ c ][ 9 ];
+
+			for( int i{ stage }; i < number_of_rows; ++i )
+				mod_col[ i ] = FREE;
+
+			for( int r_idx{ HA[ c_orig_col ][ 4 ] }; r_idx <= HA[ c_orig_col ][ 6 ]; ++r_idx )
+				mod_col[ RNLU[ r_idx ] ] = r_idx;
+
+			TYPE bvvTA{ PIVOT[ stage ] * VFIRST[ stage ] * vTA[ c ] };
+
+			std::vector< pfillin > fillins;
+
+			if( mod_col[ stage ] != FREE )
+				ALU[ mod_col[ stage ] ] -= bvvTA;
+			else
+				fillins.push_back( pfillin( -bvvTA, stage ) );
+
+
+			for( int v_idx{ HA[ s_orig_col ][ 5 ] }; v_idx <= HA[ s_orig_col ][ 6 ]; ++v_idx )
+			{
+				bvvTA = PIVOT[ stage ] * ALU[ v_idx ] * vTA[ c ];
+				const int mod_idx = mod_col[ RNLU[ v_idx ] ];
+
+				if( mod_idx != FREE )
+					ALU[ mod_idx ] -= bvvTA;
+				else
+					fillins.push_back( pfillin( -bvvTA, RNLU[ v_idx ] ) );
+			}
+
+			for( const auto& [ fillinVal, fillinRow ] : fillins )
+				if( store_fillin_COL( fillinVal, fillinRow, c_orig_col, true ) == STORING_STATUS::STORING_FAIL )
+					throw std::runtime_error( "dynamic_storage_scheme< TYPE >::QR_decomposition: not enough memory in COL" );
+
+			for( int s_idx{ HA[ c_orig_col ][ 5 ] }; s_idx <= HA[ c_orig_col ][ 6 ]; ++s_idx )
+				if( RNLU[ s_idx ] == stage )
+				{
+					deactivate_element_in_COL( s_idx, c_orig_col );
+					break;
+				}
+		}
+	}
+
+	// deactivate last element in R ( so it belongs to R )
+	// ===================================================
+	const int last_orig_col = HA[ N ][ 9 ];
+	deactivate_element_in_COL( HA[ last_orig_col ][ 5 ], last_orig_col );
+
+	dynamic_state = DYNAMIC_STATE::QR_DECOMPOSED;
+}
+
+//--------------------------------------------------------------------------------------------- solve_QR
+/**
+*  Function solves equation QRx = b, where Q is ortogonal / unitar and R is upper triangular matrix
+*
+*  @param x                     - [out] searching solution (\in TYPE^number_of_columns)
+*  @param b                     - [in] right sight vector of solving equation (\in TYPE^number_of_rows)
+*  @param y  - (default = NULL) - [in] optional helpfull vector used to counting solution in two stages
+*                                 Ly = b and Ux = y, allocation and transmision of this parameter
+*                                 is recommended for large arrays, if y is not transmitted then
+*                                 function allocates it and deletes by self
+*
+*  @throw exception             - when matrix is not decomponed or matrix is not square
+*                                 or wrong dynamic state
+*/
+//------------------------------------------------------------------------------------------------------
+template < typename TYPE >
+void dynamic_storage_scheme< TYPE >::solve_QR( std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >* y ) const
+{
+	if( dynamic_state != DYNAMIC_STATE::QR_DECOMPOSED )
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::solve_QR: QR_decomposition is needed before" );
+	if( number_of_columns != number_of_rows )
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::solve_QR: matrix is not squared" );
+	if( b.size() != number_of_rows )
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::solve_QR: b.size() != number_of_rows" );
+
+	const auto N = std::min( number_of_rows - 1, number_of_columns );
+
+	std::vector< TYPE > y_alloc;
+
+	if( y == NULL )
+		y = &y_alloc;
+
+	// first y := Q^T * b = H_1 * H_2 * ... * H_k * b
+	// ==============================================
+	*y = b;
+	for( size_t step{ 0 }; step < N; ++step )
+	{
+		const int s_orig_col = HA[ step ][ 9 ];
+
+		TYPE vTb{ conjugate( VFIRST[ step ] ) * y->at( step ) };
+		for( int r_idx{ HA[ s_orig_col ][ 5 ] }; r_idx <= HA[ s_orig_col ][ 6 ]; ++r_idx )
+			vTb += conjugate( ALU[ r_idx ] ) * y->at( RNLU[ r_idx ] );
+
+		y->at( step ) -= PIVOT[ step ] * VFIRST[ step ] * vTb;
+		for( int r_idx{ HA[ s_orig_col ][ 5 ] }; r_idx <= HA[ s_orig_col ][ 6 ]; ++r_idx )
+			y->at( RNLU[ r_idx ] ) -= PIVOT[ step ] * ALU[ r_idx ] * vTb;
+	}
+
+	// then solve Rx = Q^T * b by back substitution
+	// ============================================
+	for( int c{ static_cast< int >( number_of_columns - 1 ) }; c >= 0; --c )
+	{
+		const int s_orig_col = HA[ c ][ 9 ];
+		int r_idx{ HA[ s_orig_col ][ 5 ] - 1 };
+
+		y->at( c ) /= ALU[ r_idx-- ];
+		while( r_idx >= HA[ s_orig_col ][ 4 ] )
+		{
+			y->at( RNLU[ r_idx ] ) -= ALU[ r_idx ] * y->at( c );
+			--r_idx;
+		}
+
+		x[ HA[ c ][ 9 ] ] = y->at( c );
 	}
 }
 
@@ -1158,7 +1352,7 @@ void dynamic_storage_scheme< TYPE >::iterative_refinement( const input_storage_s
 ) const
 {
 	if( number_of_columns != number_of_rows )
-		throw std::exception( "dynamic_storage_scheme< TYPE >::iterative_refinement: matrix is not squared" );
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::iterative_refinement: matrix is not squared" );
 
 	const size_t N = number_of_columns;
 
@@ -1180,6 +1374,12 @@ void dynamic_storage_scheme< TYPE >::iterative_refinement( const input_storage_s
 		{
 		case DYNAMIC_STATE::LU_DECOMPOSED:
 			solve_LU( d, r, &y );
+			for( size_t i = 0; i < N; ++i )
+				d[ i ] = x[ i ] - d[ i ];
+			break;
+
+		case DYNAMIC_STATE::QR_DECOMPOSED:
+			solve_QR( d, r, &y );
 			for( size_t i = 0; i < N; ++i )
 				d[ i ] = x[ i ] - d[ i ];
 			break;
@@ -1219,7 +1419,7 @@ template < typename TYPE >
 void dynamic_storage_scheme< TYPE >::set_relaxation_parameter( double _relaxation_parameter )
 {
 	if( _relaxation_parameter <= 0.0 || _relaxation_parameter >= 2.0 )
-		throw std::exception( "dynamic_storage_scheme< TYPE >::set_relaxation_parameter: wrong parameter" );
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::set_relaxation_parameter: wrong parameter" );
 
 	relaxation_parameter = _relaxation_parameter;
 }
@@ -1235,7 +1435,7 @@ template < typename TYPE >
 void dynamic_storage_scheme< TYPE >::iterative_preparation( void )
 {
 	if( dynamic_state != DYNAMIC_STATE::ROL_INIT )
-		throw std::exception( "dynamic_storage_scheme< TYPE >::iterative_preparation: ROL_INIT is required" );
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::iterative_preparation: ROL_INIT is required" );
 
 	for( size_t row = 0; row < number_of_rows; ++row )
 	{
@@ -1261,7 +1461,7 @@ void dynamic_storage_scheme< TYPE >::iterative_preparation( void )
 			}
 		}
 		if( PIVOT[ row ] == TYPE{ 0 } )
-			throw std::exception( "iterative_preparation: diagonal element is equal to zero" );
+			throw std::invalid_argument( "iterative_preparation: diagonal element is equal to zero" );
 	}
 
 	dynamic_state = DYNAMIC_STATE::ITERATIVE;
@@ -1274,8 +1474,6 @@ void dynamic_storage_scheme< TYPE >::iterative_preparation( void )
 *  @param x                     - [in]  obtained solution
 *  @param b                     - [in]  right sight vestor of equation Ax=b
 *  @param prev_x                - [out] started approximation
-*  @param oemga - (default = 1) - [in]  relaxation parameter
-*                                       default set to 1 (Gauss-Seidel method)
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
@@ -1285,9 +1483,9 @@ void dynamic_storage_scheme< TYPE >::SOR_iteration( std::vector< TYPE >& x,
 ) const
 {
 	if( dynamic_state != DYNAMIC_STATE::ITERATIVE )
-		throw std::exception( "dynamic_storage_scheme< TYPE >::SOR_iteration: iterative_preparation is needed before" );
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::SOR_iteration: iterative_preparation is needed before" );
 	if( number_of_columns != number_of_rows )
-		throw std::exception( "dynamic_storage_scheme< TYPE >::SOR_iteration: matrix is not squared" );
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::SOR_iteration: matrix is not squared" );
 
 	for( size_t row = 0; row < number_of_rows; ++row )
 	{
@@ -1315,18 +1513,9 @@ void dynamic_storage_scheme< TYPE >::print_sparsity_pattern( const char* file_na
 {
 	std::ofstream outFile;
 
-	// Try to open/create the file
-	// ===========================
-	try
-	{
-		outFile.open( file_name );
-	} catch( std::exception )
-	{
-		logged_errors += "dynamic_storage_scheme< TYPE >::print_sparsity_pattern: can not open the file";
-		logged_errors += std::string( file_name );
-		outFile.close();
+	outFile.open( file_name );
+	if( !outFile )
 		return;
-	}
 
 	for( size_t row = 0; row < number_of_rows; row++ )
 	{
@@ -1348,8 +1537,6 @@ void dynamic_storage_scheme< TYPE >::print_sparsity_pattern( const char* file_na
 
 	outFile.close();
 }
-
-
 
 //***********************************************************************************************//
 //                                     PRIVATE MEMBER FUNCTIONS                                  //
@@ -1380,7 +1567,7 @@ inline void dynamic_storage_scheme< TYPE >::permute_rows( size_t pos1,
 	std::swap( HA[ pos1 ][ 7 ], HA[ pos2 ][ 7 ] );
 }
 
-//--------------------------------------------------------------------------------- permute_columns
+//--------------------------------------------------------------------------------- permute_cols
 /**
 *  Functions permutes columns that are acctualy on pos1 and pos2 positions
 *
@@ -1389,7 +1576,7 @@ inline void dynamic_storage_scheme< TYPE >::permute_rows( size_t pos1,
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-inline void dynamic_storage_scheme< TYPE >::permute_columns( size_t pos1,
+inline void dynamic_storage_scheme< TYPE >::permute_cols( size_t pos1,
 	size_t pos2
 )
 {
@@ -1397,7 +1584,7 @@ inline void dynamic_storage_scheme< TYPE >::permute_columns( size_t pos1,
 		return;
 
 	if( pos1 >= number_of_columns || pos2 >= number_of_columns )
-		throw std::out_of_range( "dynamic_storage_scheme< TYPE >::permute_columns: values out of range" );
+		throw std::out_of_range( "dynamic_storage_scheme< TYPE >::permute_cols: values out of range" );
 
 	HA[ HA[ pos1 ][ 9 ] ][ 10 ] = pos2;
 	HA[ HA[ pos2 ][ 9 ] ][ 10 ] = pos1;
@@ -1415,6 +1602,7 @@ inline void dynamic_storage_scheme< TYPE >::permute_columns( size_t pos1,
 *  @param col                              - [in] column number of storing element
 *  @param garbage_on - (default = true)    - [in] flag indicating if garbage collection
 *                                            should be performed
+*  @param store_index                      - returns index in ROL of stored element
 *
 *  @return STORING_SUCCESS                 - if element was successfuly stored
 *  @return STORING_FAIL                    - if element wasn't successfuly stored
@@ -1422,36 +1610,36 @@ inline void dynamic_storage_scheme< TYPE >::permute_columns( size_t pos1,
 //-------------------------------------------------------------------------------------------------
 
 template < typename TYPE >
-STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int origRow,
-	int origCol,
-	bool garbage_on
-)
+STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int orig_row, int orig_col, bool garbage_on, size_t* store_index )
 {
 	// if row isn't empty
 	// ==================
-	if( HA[ origRow ][ 1 ] != FREE )
+	if( HA[ orig_row ][ 1 ] != FREE )
 	{
-		const int after = HA[ origRow ][ 3 ] + 1,
-			before = HA[ origRow ][ 1 ] - 1;
+		const int after = HA[ orig_row ][ 3 ] + 1,
+			before = HA[ orig_row ][ 1 ] - 1;
 
 		// store element after row package
 		// ===============================
 		if( ( size_t )after < NROL && CNLU[ after ] == FREE )
 		{
-			if ( dynamic_state == DYNAMIC_STATE::ROL_INIT )
+			if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
 				ALU[ after ] = val;
 
-			CNLU[ after ] = origCol;
-			HA[ origRow ][ 3 ] = after;
+			CNLU[ after ] = orig_col;
+			HA[ orig_row ][ 3 ] = after;
 			CROL++;
 			if( ( size_t )after > LROL )
 				LROL = ( size_t )after;
+
+			if( store_index != nullptr )
+				*store_index = after;
 		}
 		// store element before row package
 		// ================================
 		else if( before >= 0 && CNLU[ before ] == FREE )
 		{
-			const int idx = HA[ origRow ][ 2 ] - 1;
+			const int idx = HA[ orig_row ][ 2 ] - 1;
 
 			if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
 			{
@@ -1460,18 +1648,22 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 			}
 
 			CNLU[ before ] = CNLU[ idx ];
-			CNLU[ idx ] = origCol;
-			HA[ origRow ][ 2 ]--;
-			HA[ origRow ][ 1 ] = before;
+			CNLU[ idx ] = orig_col;
+			HA[ orig_row ][ 2 ]--;
+			HA[ orig_row ][ 1 ] = before;
 			CROL++;
+
+			if( store_index != nullptr )
+				*store_index = idx;
 		}
 		// copy row package to further position
 		// ====================================
 		else if( static_cast< size_t >( after ) - before <= ( NROL - LROL - 1 ) )
 		{
-			int idx;
-			const int dist = LROL + 1 - HA[ origRow ][ 1 ];
-			for( idx = HA[ origRow ][ 1 ]; idx <= HA[ origRow ][ 3 ]; idx++ )
+			const int dist = LROL + 1 - HA[ orig_row ][ 1 ];
+
+			int idx{ HA[ orig_row ][ 1 ] };
+			for( ; idx <= HA[ orig_row ][ 3 ]; idx++ )
 			{
 				if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
 					ALU[ ( size_t )idx + dist ] = ALU[ idx ];
@@ -1480,15 +1672,20 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 				CNLU[ idx ] = FREE;
 			}
 
-			if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
-				ALU[ ( size_t )idx + dist ] = val;
+			idx += static_cast< size_t >( dist );
 
-			CNLU[ ( size_t )idx + dist ] = origCol;
-			HA[ origRow ][ 1 ] += dist;
-			HA[ origRow ][ 2 ] += dist;
-			HA[ origRow ][ 3 ] += ( dist + 1 );
+			if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
+				ALU[ idx ] = val;
+
+			CNLU[ idx ] = orig_col;
+			HA[ orig_row ][ 1 ] += dist;
+			HA[ orig_row ][ 2 ] += dist;
+			HA[ orig_row ][ 3 ] += ( dist + 1 );
 			CROL++;
-			LROL = ( size_t )HA[ origRow ][ 3 ];
+			LROL = ( size_t )HA[ orig_row ][ 3 ];
+
+			if( store_index != nullptr )
+				*store_index = idx;
 		}
 		// else garbage collection is needed
 		// =================================
@@ -1498,7 +1695,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 		else if( garbage_on )
 		{
 			garbage_collection_in_ROL();
-			return store_fillin_ROL( val, origRow, origCol, false );
+			return store_fillin_ROL( val, orig_row, orig_col, false, store_index );
 		}
 		else
 		{
@@ -1510,7 +1707,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 			CNLU.insert( CNLU.end(), new_mem, FREE );
 			NROL = CNLU.size();
 
-			return store_fillin_ROL( val, origRow, origCol, true );
+			return store_fillin_ROL( val, orig_row, orig_col, true, store_index );
 		}
 	}
 	// in case when row is empty
@@ -1523,15 +1720,18 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 			if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
 				ALU[ idx ] = val;
 
-			HA[ origRow ][ 1 ] = HA[ origRow ][ 2 ] = HA[ origRow ][ 3 ] = idx;
-			CNLU[ idx ] = origCol;
+			HA[ orig_row ][ 1 ] = HA[ orig_row ][ 2 ] = HA[ orig_row ][ 3 ] = idx;
+			CNLU[ idx ] = orig_col;
 			CROL = 1;
 			LROL++;
+
+			if( store_index != nullptr )
+				*store_index = idx;
 		}
 		else if( garbage_on )
 		{
 			garbage_collection_in_ROL();
-			return store_fillin_ROL( val, origRow, origCol, false );
+			return store_fillin_ROL( val, orig_row, orig_col, false, store_index );
 		}
 		else
 		{
@@ -1543,7 +1743,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 			CNLU.insert( CNLU.end(), new_mem, FREE );
 			NROL = CNLU.size();
 
-			return store_fillin_ROL( val, origRow, origCol, true );
+			return store_fillin_ROL( val, orig_row, orig_col, true, store_index );
 		}
 	}
 
@@ -1603,33 +1803,31 @@ void dynamic_storage_scheme< TYPE >::garbage_collection_in_ROL( void )
 	LROL = ( size_t )NEWPOS - 1;
 }
 
-//-------------------------------------------------------------------------------- store_fillin_ROL
+//-------------------------------------------------------------------------------- store_fillin_COL
 /**
 *  Function is use for storing new element in column-ordered list
 *  function checks many cases in most optimal way
 *
-*  @param row                              - [in] row number of storing element
-*  @param col                              - [in] column number of storing element
+*  @param val                              - [in] value of storing element
+*  @param orig_row                         - [in] row number of storing element
+*  @param orig_col                         - [in] column number of storing element
 *  @param garbage_on (default = true)      - [in] flag indicating if garbage collection
 *                                            should be performed
+*  @param store_index                      - returns index in COL of stored element
 *
 *  @return STORING_SUCCESS                 - if element was successfuly stored
 *  @return STORING_FAIL                    - if element wasn't successfuly stored
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val,
-	int origRow,
-	int origCol,
-	bool garbage_on
-)
+STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val, int orig_row, int orig_col, bool garbage_on, size_t* store_index )
 {
 	// if column isn't empty
 	// =====================
-	if( HA[ origCol ][ 4 ] != FREE )
+	if( HA[ orig_col ][ 4 ] != FREE )
 	{
-		const int after = HA[ origCol ][ 6 ] + 1,
-			before = HA[ origCol ][ 4 ] - 1;
+		const int after = HA[ orig_col ][ 6 ] + 1,
+			before = HA[ orig_col ][ 4 ] - 1;
 
 		// store element after column package
 		// ==================================
@@ -1638,17 +1836,20 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val,
 			if( dynamic_state == DYNAMIC_STATE::COL_INIT )
 				ALU[ after ] = val;
 
-			RNLU[ after ] = origRow;
-			HA[ origCol ][ 6 ] = after;
+			RNLU[ after ] = orig_row;
+			HA[ orig_col ][ 6 ] = after;
 			CCOL++;
 			if( ( size_t )after > LCOL )
 				LCOL = ( size_t )after;
+
+			if( store_index != nullptr )
+				*store_index = after;
 		}
 		// store element before column package
 		// ===================================
 		else if( before >= 0 && RNLU[ before ] == FREE )
 		{
-			const int idx = HA[ origCol ][ 5 ] - 1;
+			const int idx = HA[ orig_col ][ 5 ] - 1;
 
 			if( dynamic_state == DYNAMIC_STATE::COL_INIT )
 			{
@@ -1657,18 +1858,21 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val,
 			}
 
 			RNLU[ before ] = RNLU[ idx ];
-			RNLU[ idx ] = origRow;
-			HA[ origCol ][ 5 ]--;
-			HA[ origCol ][ 4 ] = before;
+			RNLU[ idx ] = orig_row;
+			HA[ orig_col ][ 5 ]--;
+			HA[ orig_col ][ 4 ] = before;
 			CCOL++;
+
+			if( store_index != nullptr )
+				*store_index = idx;
 		}
 		// copy column package to further position
 		// =======================================
 		else if( static_cast< size_t >( after ) - before <= ( NCOL - LCOL - 1 ) )
 		{
-			int idx;
-			const int dist = LCOL + 1 - HA[ origCol ][ 4 ];
-			for( idx = HA[ origCol ][ 4 ]; idx <= HA[ origCol ][ 6 ]; idx++ )
+			const int dist = LCOL + 1 - HA[ orig_col ][ 4 ];
+			int idx{ HA[ orig_col ][ 4 ] };
+			for( ; idx <= HA[ orig_col ][ 6 ]; idx++ )
 			{
 				if( dynamic_state == DYNAMIC_STATE::COL_INIT )
 					ALU[ ( size_t )idx + dist ] = ALU[ idx ];
@@ -1677,15 +1881,20 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val,
 				RNLU[ idx ] = FREE;
 			}
 
-			if( dynamic_state == DYNAMIC_STATE::COL_INIT )
-				ALU[ ( size_t )idx + dist ] = val;
+			idx += static_cast< size_t >( dist );
 
-			RNLU[ ( size_t )idx + dist ] = origRow;
-			HA[ origCol ][ 4 ] += dist;
-			HA[ origCol ][ 5 ] += dist;
-			HA[ origCol ][ 6 ] += ( dist + 1 );
+			if( dynamic_state == DYNAMIC_STATE::COL_INIT )
+				ALU[ idx ] = val;
+
+			RNLU[ idx ] = orig_row;
+			HA[ orig_col ][ 4 ] += dist;
+			HA[ orig_col ][ 5 ] += dist;
+			HA[ orig_col ][ 6 ] += ( dist + 1 );
 			CCOL++;
-			LCOL = ( size_t )HA[ origCol ][ 6 ];
+			LCOL = ( size_t )HA[ orig_col ][ 6 ];
+
+			if( store_index != nullptr )
+				*store_index = idx;
 		}
 		// else garbage collection is needed
 		// =================================
@@ -1695,7 +1904,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val,
 		else if( garbage_on )
 		{
 			garbage_collection_in_COL();
-			return store_fillin_COL( val, origRow, origCol, false );
+			return store_fillin_COL( val, orig_row, orig_col, false, store_index );
 		}
 		else
 		{
@@ -1707,7 +1916,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val,
 			RNLU.insert( RNLU.end(), new_mem, FREE );
 			NCOL = RNLU.size();
 
-			return store_fillin_COL( val, origRow, origCol, true );
+			return store_fillin_COL( val, orig_row, orig_col, true, store_index );
 		}
 	}
 	// in case when column is empty
@@ -1720,15 +1929,18 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val,
 			if( dynamic_state == DYNAMIC_STATE::COL_INIT )
 				ALU[ idx ] = val;
 
-			HA[ origCol ][ 4 ] = HA[ origCol ][ 5 ] = HA[ origCol ][ 6 ] = idx;
-			RNLU[ idx ] = origRow;
+			HA[ orig_col ][ 4 ] = HA[ orig_col ][ 5 ] = HA[ orig_col ][ 6 ] = idx;
+			RNLU[ idx ] = orig_row;
 			CCOL = 1;
 			LCOL++;
+
+			if( store_index != nullptr )
+				*store_index = idx;
 		}
 		else if( garbage_on )
 		{
 			garbage_collection_in_COL();
-			return store_fillin_COL( val, origRow, origCol, false );
+			return store_fillin_COL( val, orig_row, orig_col, false, store_index );
 		}
 		else
 		{
@@ -1740,14 +1952,14 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val,
 			RNLU.insert( RNLU.end(), new_mem, FREE );
 			NCOL = RNLU.size();
 
-			return store_fillin_COL( val, origRow, origCol, true );
+			return store_fillin_COL( val, orig_row, orig_col, true, store_index );
 		}
 	}
 
 	return STORING_STATUS::STORING_SUCCESS;
 }
 
-//----------------------------------------------------------------------  garbage_collection_in_ROL
+//----------------------------------------------------------------------  garbage_collection_in_COL
 /**
 *  Function performs the organize of the elements in a compact structure
 */
@@ -1806,19 +2018,37 @@ void dynamic_storage_scheme< TYPE >::garbage_collection_in_COL( void )
 *  Function bring choosen element to inactive part of specified row package
 *
 *  @param index                - [in] index in ROL of element we wont to deactive
-*  @param row                  - [in] row-package of speccified element
+*  @param row                  - [in] row-package of specified element
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-inline void dynamic_storage_scheme< TYPE >::deactivate_element_in_ROL( size_t index,
-	size_t row
-)
+inline void dynamic_storage_scheme< TYPE >::deactivate_element_in_ROL( size_t index, size_t row )
 {
-	std::swap( ALU[ index ], ALU[ HA[ row ][ 2 ] ] );
 	std::swap( CNLU[ index ], CNLU[ HA[ row ][ 2 ] ] );
+	if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
+		std::swap( ALU[ index ], ALU[ HA[ row ][ 2 ] ] );
 
-	HA[ row ][ 2 ]++;
+	++HA[ row ][ 2 ];
 }
+
+//----------------------------------------------------------------------- deactivate_element_in_COL
+/**
+*  Function bring choosen element to inactive part of specified col package
+*
+*  @param index                - [in] index in COL of element we wont to deactive
+*  @param col                  - [in] col-package of specified element
+*/
+//-------------------------------------------------------------------------------------------------
+template < typename TYPE >
+inline void dynamic_storage_scheme< TYPE >::deactivate_element_in_COL( size_t index, size_t col )
+{
+	std::swap( RNLU[ index ], RNLU[ HA[ col ][ 5 ] ] );
+	if( dynamic_state == DYNAMIC_STATE::COL_INIT )
+		std::swap( ALU[ index ], ALU[ HA[ col ][ 5 ] ] );
+
+	++HA[ col ][ 5 ];
+}
+
 //------------------------------------------------------------------------ eliminate_element_in_ROL
 /**
 *  Function deletes choosen element from specified row-package
@@ -1967,7 +2197,7 @@ void dynamic_storage_scheme< TYPE >::choose_pivot_by_ONE_ROW_SEARCHING( size_t s
 	}
 	// bring element to position (stage, stage)
 	// ========================================
-	permute_columns( HA[ CNLU[ INDEX ] ][ 10 ], stage );
+	permute_cols( HA[ CNLU[ INDEX ] ][ 10 ], stage );
 
 	// store pivot and free position in ROL
 	// ====================================
@@ -2061,7 +2291,7 @@ void dynamic_storage_scheme< TYPE >::choose_pivot_by_MARKOWITZ_COST( size_t stag
 	// bring element to position (stage, stage)
 	// ========================================
 	permute_rows( ROW, stage );
-	permute_columns( HA[ CNLU[ INDEX ] ][ 10 ], stage );
+	permute_cols( HA[ CNLU[ INDEX ] ][ 10 ], stage );
 
 	// store pivot and free position in ROL
 	// ====================================
@@ -2080,9 +2310,7 @@ void dynamic_storage_scheme< TYPE >::choose_pivot_by_MARKOWITZ_COST( size_t stag
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::sort_rows( int l,
-	int r
-)
+void dynamic_storage_scheme< TYPE >::sort_rows( int l, int r )
 {
 	if( !r )
 		r = number_of_rows - 1;
@@ -2110,7 +2338,45 @@ void dynamic_storage_scheme< TYPE >::sort_rows( int l,
 		sort_rows( i, r );
 }
 
-//--------------------------------------------------------------------------------------- sort_rows
+//--------------------------------------------------------------------------------------- sort_cols
+/**
+*  Standard quick sort algorithm, used for sorting cols in not decreasing order of
+*  non-zero elements
+*
+*  @param l            - [in] left index of sorting range
+*  @param r            - [in] right index of sorting range
+*/
+//-------------------------------------------------------------------------------------------------
+template < typename TYPE >
+void dynamic_storage_scheme< TYPE >::sort_cols( int l, int r )
+{
+	if( !r )
+		r = number_of_columns - 1;
+
+	const int mid = ( l + r ) / 2;
+	const int v = HA[ HA[ mid ][ 9 ] ][ 6 ] - HA[ HA[ mid ][ 9 ] ][ 5 ];
+	int i = l,
+		j = r;
+	do
+	{
+		while( i < ( int )number_of_columns && HA[ HA[ i ][ 9 ] ][ 6 ] - HA[ HA[ i ][ 9 ] ][ 5 ] < v )
+			i++;
+		while( j >= 0 && v < HA[ HA[ j ][ 9 ] ][ 6 ] - HA[ HA[ j ][ 9 ] ][ 5 ] )
+			j--;
+		if( i <= j )
+		{
+			permute_cols( i, j );
+			i++;
+			j--;
+		}
+	} while( i < j );
+	if( l < j )
+		sort_cols( l, j );
+	if( i < r )
+		sort_cols( i, r );
+}
+
+//--------------------------------------------------------------------------------------- sort_rows_ROWAMD
 /**
 *  performs row sorting by key that is aproximated minimal degree
 *  it reduces fillins by simulating it arises during elimation
@@ -2177,72 +2443,466 @@ void dynamic_storage_scheme< TYPE >::sort_rows_ROWAMD()
 	}
 }
 
-//------------------------------------------------------------------------------- count_fillin_cost
+//--------------------------------------------------------------------------------------- sort_cols_COLAMD
 /**
-*  Method counts fillin cost on stage "stage" of elimination in assumption
-*  that specified element was choosen as a pivot
-*
-*  @param index            - [in] index of specified element in ROL
-*  @param row              - [in] original row number of specified element
-*
-*  @return                 - fillin cost of element
+*  performs cols sorting by key that is aproximated minimal degree
+*  it reduces fillins by simulating it arises during elimation
+*  and choosing potentially minimal fillin cost
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-int dynamic_storage_scheme< TYPE >::count_fillin_cost( size_t index,
-	size_t row
-)
+void dynamic_storage_scheme< TYPE >::sort_cols_COLAMD()
 {
-	size_t FCOST = 0;
-	const int col_number = CNLU[ index ];
+	if( dynamic_state != DYNAMIC_STATE::COL_INIT )
+		throw std::invalid_argument( " dynamic_storage_scheme< TYPE >::sort_cols_COLAMD - COL_INIT state reqired" );
 
-	const int row_begin = HA[ row ][ 2 ],
-		row_end = HA[ row ][ 3 ];
+	std::map< int, std::map< int, bool > > col_connections;
 
-	// mark proper positions in specjal positions HA[][0]
-	// and store potential number of fillins in one eliminated row
-	// ===========================================================
-	size_t num_elems = 0;
-	for( int idx = row_begin; idx <= row_end; ++idx )
-		if( idx != index )
-		{
-			HA[ HA[ CNLU[ idx ] ][ 10 ] ][ 0 ] = NFREE;
-			++num_elems;
-		}
-	size_t temp_fcost = num_elems;
+	for( int c{ 0 }; c < static_cast< int >( number_of_columns ); ++c )
+		col_connections[ c ] = std::map< int, bool>();
 
-	// over all eliminated rows
-	// ========================
-	const int check_col_end = HA[ col_number ][ 6 ];
-	for( int col = HA[ col_number ][ 5 ]; col <= check_col_end; ++col )
+	for( int c{ 0 }; c < static_cast< int >( number_of_columns ); ++c )
 	{
-		const int row_number = RNLU[ col ];
-		if( row_number != row )
+		std::map< int, bool > c_rows;
+
+		for( int r{ HA[ c ][ 4 ] }; r <= HA[ c ][ 6 ]; ++r )
+			c_rows[ RNLU[ r ] ] = true;
+
+		for( int cn{ c + 1 }; cn < static_cast< int >( number_of_columns ); ++cn )
+			for( int rn{ HA[ cn ][ 4 ] }; rn <= HA[ cn ][ 6 ]; ++rn )
+				if( c_rows.find( RNLU[ rn ] ) != c_rows.end() )
+				{
+					col_connections[ c ][ cn ] = true;
+					col_connections[ cn ][ c ] = true;
+				}
+	}
+
+	for( int c{ 0 }; c < static_cast< int >( number_of_columns ) - 1; ++c )
+	{
+		int C{ HA[ c ][ 9 ] };
+		auto min_degree{ col_connections[ C ].size() };
+		int c_min{ c };
+
+		for( int cn{ c + 1 }; cn < static_cast< int >( number_of_columns ); ++cn )
 		{
-			const int checking_row_end = HA[ row_number ][ 3 ];
-			for( int idx = HA[ row_number ][ 2 ]; idx <= checking_row_end; ++idx )
+			int CN{ HA[ cn ][ 9 ] };
+			auto n_min_degree{ col_connections[ CN ].size() };
+
+			if( n_min_degree < min_degree )
 			{
-				const int col = CNLU[ idx ];
-				if( col != col_number && HA[ HA[ col ][ 10 ] ][ 0 ] == NFREE )
-					--temp_fcost;
+				min_degree = n_min_degree;
+				c_min = cn;
 			}
-			FCOST += temp_fcost;
-			temp_fcost = num_elems;
+		}
+
+		permute_cols( c, c_min );
+
+		C = HA[ c ][ 9 ];
+		for( const auto& [r, val] : col_connections[ C ] )
+		{
+			col_connections[ r ].erase( C );
+			for( const auto& [rn, val] : col_connections[ C ] )
+				if( rn != r )
+					col_connections[ r ][ rn ] = true;
+		}
+
+		col_connections.erase( C );
+	}
+}
+
+//---------------------------------------------------------------------------- print_scheme_to_file
+/**
+*  Method prints scheme to file, there can be state of scheme in details
+*  @param file_name         - [in] name of file to which scheme should be printed
+*/
+//-------------------------------------------------------------------------------------------------
+template < typename TYPE >
+void dynamic_storage_scheme< TYPE >::print_scheme_to_file( const char* file_name )
+{
+	std::ofstream outFile;
+
+	outFile.open( file_name );
+	if( !outFile )
+		return;
+
+	const size_t manip_int = 3;
+	const size_t manip_idx = 4;
+	const size_t manip_double = 10;
+
+	outFile << "\\=================== DYNCAMIC STORAGE SCHEME ===================" << std::endl
+		<< "number of rows       :" << number_of_rows << std::endl
+		<< "number of columns    :" << number_of_columns << std::endl
+		<< "dynamic state        :";
+	switch( dynamic_state )
+	{
+	case DYNAMIC_STATE::ROL_INIT: outFile << "ROL_INIT\n\n"; break;
+	case DYNAMIC_STATE::COL_INIT: outFile << "COL_INIT\n\n"; break;
+	case DYNAMIC_STATE::ITERATIVE: outFile << "ITERATIVE\n\n"; break;
+	case DYNAMIC_STATE::LU_DECOMPOSED: outFile << "LU_DECOMPOSED\n\n"; break;
+	case DYNAMIC_STATE::QR_DECOMPOSED: outFile << "QR_DECOMPOSED\n\n"; break;
+	}
+
+	outFile << "PIVOT: [PIVOT[idx],idx]" << std::endl;
+	for( size_t i = 0; i < NHA; i++ )
+		outFile << "[" << PIVOT[ i ] << "," << i << "]";
+	outFile << std::endl << std::endl;
+	outFile << "\\----------------- ROW ORDERED LIST -----------------" << std::endl
+		<< "size of row-ordered list                  :" << NROL << std::endl
+		<< "last not free position in ROL             :" << LROL << std::endl
+		<< "number of non-zeros actualy stored in ROL :" << CROL << std::endl << std::endl;
+
+	// Print memory in usege
+	// =====================
+	outFile << "memory usage   :";
+	for( size_t Pos = 0; Pos < NROL; Pos++ )
+	{
+		if( CNLU[ Pos ] != FREE )
+			outFile << "o";
+		else
+			outFile << ".";
+	}
+	outFile << std::endl;
+
+	// Print indexes
+	// =============
+	outFile << "indexes % 1    :";
+	for( size_t Pos = 0; Pos < NROL; Pos++ )
+		outFile << Pos % 10;
+	outFile << std::endl;
+	outFile << "indexes % 10   :";
+	for( size_t Pos = 0; Pos < NROL; Pos++ )
+	{
+		if( Pos % 10 == 0 )
+			outFile << ( Pos / 10 ) % 10;
+		else
+			outFile << " ";
+	}
+	outFile << std::endl;
+
+	// Print part of integrity table responsible for ROL
+	// =================================================
+	for( size_t Index = 1; Index <= 3; Index++ )
+	{
+		// Print ROL markers
+		// =================
+		outFile << "H[.][" << Index << "] % 10   :";
+		for( size_t Pos = 0; Pos < NROL; Pos++ )
+		{
+			bool SignPrinted = false;
+			for( size_t RowNum = 0; RowNum < number_of_rows; RowNum++ )
+			{
+				if( HA[ RowNum ][ Index ] == Pos &&
+					!( Index == 2 && HA[ RowNum ][ 2 ] > HA[ RowNum ][ 3 ] && ( size_t )HA[ RowNum ][ 2 ] < NROL && CNLU[ HA[ RowNum ][ 2 ] ] != FREE ) )
+				{
+					outFile << ( RowNum % 10 );
+					SignPrinted = true;
+				}
+			}
+			if( !SignPrinted )
+				outFile << " ";
+		}
+		outFile << std::endl;
+	}
+	outFile << std::endl;
+	// Print markers
+	// =============
+	outFile << "row =   ";
+	for( size_t row = 0; row < number_of_rows; row++ )
+		outFile << std::setw( manip_idx ) << row;
+	outFile << std::endl;
+
+	// Print part of integrity table responsible for ROL
+	// =================================================
+	for( size_t Index = 1; Index <= 3; Index++ )
+	{
+		// Print ROL markers
+		// =================
+		outFile << "H[.][" << Index << "]:";
+		for( size_t row = 0; row < number_of_rows; row++ )
+			outFile << std::setw( manip_idx ) << HA[ row ][ Index ];
+		outFile << std::endl;
+	}
+
+	// Print stored in ROL values, their column numbers and positions in ROL
+	// =====================================================================
+	outFile << std::endl << "(original row number, its current position):";
+
+	switch( dynamic_state )
+	{
+	case DYNAMIC_STATE::ROL_INIT:
+	case DYNAMIC_STATE::LU_DECOMPOSED:
+	case DYNAMIC_STATE::ITERATIVE:
+		outFile << "[ALU,CNLU,idx],..." << std::endl;
+		break;
+	case DYNAMIC_STATE::COL_INIT:
+	case DYNAMIC_STATE::QR_DECOMPOSED:
+		outFile << "[CNLU,idx],..." << std::endl;
+	}
+
+	for( size_t row = 0; row < number_of_rows; row++ )
+	{
+		outFile << "(" << HA[ row ][ 7 ] << "," << row << "): ";
+		if( HA[ HA[ row ][ 7 ] ][ 1 ] == FREE || HA[ HA[ row ][ 7 ] ][ 2 ] == FREE || HA[ HA[ row ][ 7 ] ][ 3 ] == EMPTY )
+			continue;
+		for( int idx = HA[ HA[ row ][ 7 ] ][ 1 ]; idx <= HA[ HA[ row ][ 7 ] ][ 3 ]; idx++ )
+		{
+			switch( dynamic_state )
+			{
+			case DYNAMIC_STATE::ROL_INIT:
+			case DYNAMIC_STATE::LU_DECOMPOSED:
+			case DYNAMIC_STATE::ITERATIVE:
+				outFile << "[" << std::setw( manip_double ) << ALU[ idx ] << "," << std::setw( manip_int ) << CNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
+				break;
+			case DYNAMIC_STATE::COL_INIT:
+			case DYNAMIC_STATE::QR_DECOMPOSED:
+				outFile << "[" << std::setw( manip_int ) << CNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
+			}
+		}
+		outFile << std::endl;
+	}
+
+	// Print permutations of rows
+	// ==========================
+	outFile << std::endl << "row permutations:" << std::endl;
+	outFile << "         ";
+	for( size_t row = 0; row < number_of_rows; row++ )
+		outFile << std::setw( manip_int ) << row;
+	outFile << std::endl << "HA[][7]: ";
+	for( size_t row = 0; row < number_of_rows; row++ )
+		outFile << std::setw( manip_int ) << HA[ row ][ 7 ];
+	outFile << std::endl << "HA[][8]: ";
+	for( size_t row = 0; row < number_of_rows; row++ )
+		outFile << std::setw( manip_int ) << HA[ row ][ 8 ];
+
+	outFile << std::endl << std::endl;
+	outFile << "\\---------------- COLUMN ORDERED LIST ----------------" << std::endl
+		<< "size of column-ordered list               :" << NCOL << std::endl
+		<< "last not free position in COL             :" << LCOL << std::endl
+		<< "number of non-zeros actualy stored in COL :" << CCOL << std::endl << std::endl;
+
+	// Print memory in usege
+	// =====================
+	outFile << "memory usage   :";
+	for( size_t Pos = 0; Pos < NCOL; Pos++ )
+	{
+		if( RNLU[ Pos ] != FREE )
+			outFile << "o";
+		else
+			outFile << ".";
+	}
+	outFile << std::endl;
+
+	// Print indexes
+	// =============
+	outFile << "indexes % 1    :";
+	for( size_t Pos = 0; Pos < NCOL; Pos++ )
+		outFile << Pos % 10;
+	outFile << std::endl;
+	outFile << "indexes % 10   :";
+	for( size_t Pos = 0; Pos < NCOL; Pos++ )
+	{
+		if( Pos % 10 == 0 )
+			outFile << ( Pos / 10 ) % 10;
+		else
+			outFile << " ";
+	}
+	outFile << std::endl;
+
+	// Print part of integrity table responsible for COL
+	// =================================================
+	for( size_t Index = 4; Index <= 6; Index++ )
+	{
+		// Print COL markers
+		// =================
+		outFile << "H[.][" << Index << "] % 10   :";
+		for( size_t Pos = 0; Pos < NCOL; Pos++ )
+		{
+			bool SignPrinted = false;
+			for( size_t ColNum = 0; ColNum < number_of_columns; ColNum++ )
+			{
+				if( HA[ ColNum ][ Index ] == Pos &&
+					!( Index == 5 && HA[ ColNum ][ 5 ] > HA[ ColNum ][ 6 ] && ( size_t )HA[ ColNum ][ 5 ] < NCOL && RNLU[ HA[ ColNum ][ 5 ] ] != FREE ) )
+				{
+					outFile << ( ColNum % 10 );
+					SignPrinted = true;
+				}
+			}
+			if( !SignPrinted )
+				outFile << " ";
+		}
+		outFile << std::endl;
+	}
+	outFile << std::endl;
+	// Print markers
+	// =============
+	outFile << "col =   ";
+	for( size_t col = 0; col < number_of_columns; col++ )
+		outFile << std::setw( manip_idx ) << col;
+	outFile << std::endl;
+
+	// Print part of integrity table responsible for COL
+	// =================================================
+	for( size_t Index = 4; Index <= 6; Index++ )
+	{
+		// Print ROL markers
+		// =================
+		outFile << "H[.][" << Index << "]:";
+		for( size_t col = 0; col < number_of_columns; col++ )
+			outFile << std::setw( manip_idx ) << HA[ col ][ Index ];
+		outFile << std::endl;
+	}
+
+	// Print stored in COL values and positions in COL
+	// ===============================================
+	outFile << std::endl << "(original column number, its current position):";
+
+	switch( dynamic_state )
+	{
+	case DYNAMIC_STATE::ROL_INIT:
+	case DYNAMIC_STATE::LU_DECOMPOSED:
+	case DYNAMIC_STATE::ITERATIVE:
+		outFile << "[RNLU,idx],..." << std::endl;
+		break;
+	case DYNAMIC_STATE::COL_INIT:
+	case DYNAMIC_STATE::QR_DECOMPOSED:
+		outFile << "[ALU,RNLU,idx],..." << std::endl;
+		break;
+	}
+
+	for( size_t col = 0; col < number_of_columns; col++ )
+	{
+		switch( dynamic_state )
+		{
+		case DYNAMIC_STATE::ROL_INIT:
+		case DYNAMIC_STATE::LU_DECOMPOSED:
+		case DYNAMIC_STATE::ITERATIVE:
+			outFile << "(" << std::setw( manip_int ) << HA[ col ][ 9 ] << "," << std::setw( manip_int ) << col << ")";
+			break;
+		case DYNAMIC_STATE::COL_INIT:
+		case DYNAMIC_STATE::QR_DECOMPOSED:
+			outFile << std::setw( manip_double + 1 ) << " " << "(" << std::setw( manip_int ) << HA[ col ][ 9 ] << "," << std::setw( manip_int ) << col << ")";
+			break;
+		}
+	}
+	outFile << std::endl;
+
+	size_t line = 0;
+	bool print = true;
+	while( print && line < number_of_rows )
+	{
+		print = false;
+		for( size_t col = 0; col < number_of_columns; col++ )
+		{
+			if( HA[ HA[ col ][ 9 ] ][ 4 ] == FREE )
+			{
+				outFile << std::setw( 2 * manip_int + 3 ) << " ";
+				continue;
+			}
+			int idx = HA[ HA[ col ][ 9 ] ][ 4 ] + line;
+			if( idx <= HA[ HA[ col ][ 9 ] ][ 6 ] )
+			{
+				print = true;
+				if( dynamic_state != DYNAMIC_STATE::COL_INIT )
+					outFile << "[" << std::setw( manip_int ) << RNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
+				else
+					outFile << "[" << std::setw( manip_double ) << ALU[ idx ] << "," << std::setw( manip_int ) << RNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
+			}
+			else
+			{
+				if( dynamic_state != DYNAMIC_STATE::COL_INIT )
+					outFile << std::setw( 2 * manip_int + 3 ) << " ";
+				else
+					outFile << std::setw( manip_double + 2 * manip_int + 4 ) << " ";
+			}
+		}
+		outFile << std::endl;
+		line++;
+	}
+
+	// Print permutations of rows
+	// ==========================
+	outFile << std::endl << "column permutations:" << std::endl;
+	outFile << "         ";
+	for( size_t col = 0; col < number_of_columns; col++ )
+		outFile << std::setw( manip_int ) << col;
+	outFile << std::endl << "HA[][9]: ";
+	for( size_t col = 0; col < number_of_columns; col++ )
+		outFile << std::setw( manip_int ) << HA[ col ][ 9 ];
+	outFile << std::endl << "HA[][10]:";
+	for( size_t col = 0; col < number_of_columns; col++ )
+		outFile << std::setw( manip_int ) << HA[ col ][ 10 ];
+
+	// Print working parts of integrity table
+	// ======================================
+	outFile << std::endl << std::endl << "\\---------------- WORKING PART OF INTEGRITY TABLE  ----------------" << std::endl;
+	outFile << "         ";
+	for( size_t col = 0; col < number_of_columns; col++ )
+		outFile << std::setw( manip_int ) << col;
+	outFile << std::endl << "HA[][0]: ";
+	for( size_t col = 0; col < NHA; col++ )
+		outFile << std::setw( manip_int ) << HA[ col ][ 0 ];
+
+	outFile << std::endl << std::endl << "\\============================ MATRIX RECONSTRUCTION ============================";
+	if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
+	{
+		for( size_t row = 0; row < number_of_rows; row++ )
+		{
+			outFile << std::endl;
+			for( size_t col = 0; col < number_of_columns; col++ )
+			{
+				bool printed = false;
+				for( int idx = HA[ HA[ row ][ 7 ] ][ 1 ]; idx <= HA[ HA[ row ][ 7 ] ][ 3 ]; idx++ )
+				{
+					if( idx <= FREE )
+						break;
+					if( CNLU[ idx ] == HA[ col ][ 9 ] )
+					{
+						outFile << std::setw( manip_double ) << ALU[ idx ];
+						printed = true;
+						break;
+					}
+				}
+				if( !printed && row == col && std::abs( PIVOT[ row ] ) != 0 )
+					outFile << std::setw( manip_double ) << PIVOT[ row ];
+				else if( !printed )
+					outFile << std::setw( manip_double ) << 0;
+			}
 		}
 	}
 
-	// clear marked positions
-	// ======================
-	for( int idx = row_begin; idx <= row_end; ++idx )
-		HA[ HA[ CNLU[ idx ] ][ 10 ] ][ 0 ] = FREE;
+	if( dynamic_state == DYNAMIC_STATE::COL_INIT )
+	{
+		for( size_t row = 0; row < number_of_rows; row++ )
+		{
+			outFile << std::endl;
+			for( size_t col = 0; col < number_of_columns; col++ )
+			{
+				bool printed = false;
+				for( int idx = HA[ HA[ col ][ 9 ] ][ 4 ]; idx <= HA[ HA[ col ][ 9 ] ][ 6 ]; idx++ )
+				{
+					if( idx <= FREE )
+						break;
+					if( RNLU[ idx ] == HA[ row ][ 7 ] )
+					{
+						outFile << std::setw( manip_double ) << ALU[ idx ];
+						printed = true;
+						break;
+					}
+				}
+				if( !printed && row == col && std::abs( PIVOT[ row ] ) != 0 )
+					outFile << std::setw( manip_double ) << PIVOT[ row ];
+				else if( !printed )
+					outFile << std::setw( manip_double ) << 0;
+			}
+		}
+	}
 
-	return FCOST;
+	outFile.close();
 }
 
 //-------------------------------------------------------------------------------------- operator<<
 /**
-*  Standard outstream operator is used for detailed printing scheme state
-*  It is very usefull function during developing any dynamic operation on matrix
+*  Standard outstream operator is used
 *
 *  @param out                   - [in/out] standard outstream object
 *  @param DSS                   - [in] dynamic storage scheme
@@ -2253,321 +2913,7 @@ std::ostream& operator<<( std::ostream& out,
 	const dynamic_storage_scheme< TYPE2>& DSS
 	)
 {
-	const size_t manip_int = 3;
-	const size_t manip_idx = 4;
-	const size_t manip_double = 10;
-
-	out << "\\=================== DYNCAMIC STORAGE SCHEME ===================" << std::endl
-		<< "number of rows       :" << DSS.number_of_rows << std::endl
-		<< "number of columns    :" << DSS.number_of_columns << std::endl
-		<< "dynamic state        :";
-	switch( DSS.dynamic_state )
-	{
-	case DYNAMIC_STATE::ROL_INIT: out << "ROL_INIT\n\n"; break;
-	case DYNAMIC_STATE::COL_INIT: out << "COL_INIT\n\n"; break;
-	case DYNAMIC_STATE::ITERATIVE: out << "ITERATIVE\n\n"; break;
-	case DYNAMIC_STATE::LU_DECOMPOSED: out << "LU_DECOMPOSED\n\n"; break;
-	case DYNAMIC_STATE::QR_DECOMPOSED: out << "QR_DECOMPOSED\n\n"; break;
-	}
-
-	out << "PIVOT: [PIVOT[idx],idx]" << std::endl;
-	for( size_t i = 0; i < DSS.NHA; i++ )
-		out << "[" << DSS.PIVOT[ i ] << "," << i << "]";
-	out << std::endl << std::endl;
-	out << "\\----------------- ROW ORDERED LIST -----------------" << std::endl
-		<< "size of row-ordered list                  :" << DSS.NROL << std::endl
-		<< "last not free position in ROL             :" << DSS.LROL << std::endl
-		<< "number of non-zeros actualy stored in ROL :" << DSS.CROL << std::endl << std::endl;
-
-	// Print memory in usege
-	// =====================
-	out << "memory usage   :";
-	for( size_t Pos = 0; Pos < DSS.NROL; Pos++ )
-	{
-		if( DSS.CNLU[ Pos ] != FREE )
-			out << "o";
-		else
-			out << ".";
-	}
-	out << std::endl;
-
-	// Print indexes
-	// =============
-	out << "indexes % 1    :";
-	for( size_t Pos = 0; Pos < DSS.NROL; Pos++ )
-		out << Pos % 10;
-	out << std::endl;
-	out << "indexes % 10   :";
-	for( size_t Pos = 0; Pos < DSS.NROL; Pos++ )
-	{
-		if( Pos % 10 == 0 )
-			out << ( Pos / 10 ) % 10;
-		else
-			out << " ";
-	}
-	out << std::endl;
-
-	// Print part of integrity table responsible for ROL
-	// =================================================
-	for( size_t Index = 1; Index <= 3; Index++ )
-	{
-		// Print ROL markers
-		// =================
-		out << "H[.][" << Index << "] % 10   :";
-		for( size_t Pos = 0; Pos < DSS.NROL; Pos++ )
-		{
-			bool SignPrinted = false;
-			for( size_t RowNum = 0; RowNum < DSS.number_of_rows; RowNum++ )
-			{
-				if( DSS.HA[ RowNum ][ Index ] == Pos &&
-					!( Index == 2 && DSS.HA[ RowNum ][ 2 ] > DSS.HA[ RowNum ][ 3 ] && ( size_t )DSS.HA[ RowNum ][ 2 ] < DSS.NROL && DSS.CNLU[ DSS.HA[ RowNum ][ 2 ] ] != FREE ) )
-				{
-					out << ( RowNum % 10 );
-					SignPrinted = true;
-				}
-			}
-			if( !SignPrinted )
-				out << " ";
-		}
-		out << std::endl;
-	}
-	out << std::endl;
-	// Print markers
-	// =============
-	out << "row =   ";
-	for( size_t row = 0; row < DSS.number_of_rows; row++ )
-		out << std::setw( manip_idx ) << row;
-	out << std::endl;
-
-	// Print part of integrity table responsible for ROL
-	// =================================================
-	for( size_t Index = 1; Index <= 3; Index++ )
-	{
-		// Print ROL markers
-		// =================
-		out << "H[.][" << Index << "]:";
-		for( size_t row = 0; row < DSS.number_of_rows; row++ )
-			out << std::setw( manip_idx ) << DSS.HA[ row ][ Index ];
-		out << std::endl;
-	}
-
-	// Print stored in ROL values, their column numbers and positions in ROL
-	// =====================================================================
-	out << std::endl << "(original row number, its current position):";
-	if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
-		out << "[ALU,CNLU,idx],..." << std::endl;
-	else
-		out << "[CNLU,idx],..." << std::endl;
-	for( size_t row = 0; row < DSS.number_of_rows; row++ )
-	{
-		out << "(" << DSS.HA[ row ][ 7 ] << "," << row << "): ";
-		if( DSS.HA[ DSS.HA[ row ][ 7 ] ][ 1 ] == FREE || DSS.HA[ DSS.HA[ row ][ 7 ] ][ 2 ] == FREE || DSS.HA[ DSS.HA[ row ][ 7 ] ][ 3 ] == EMPTY )
-			continue;
-		for( int idx = DSS.HA[ DSS.HA[ row ][ 7 ] ][ 1 ]; idx <= DSS.HA[ DSS.HA[ row ][ 7 ] ][ 3 ]; idx++ )
-		{
-			if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
-				out << "[" << std::setw( manip_double ) << DSS.ALU[ idx ] << "," << std::setw( manip_int ) << DSS.CNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
-			else
-				out << "[" << std::setw( manip_int ) << DSS.CNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
-		}
-		out << std::endl;
-	}
-
-	// Print permutations of rows
-	// ==========================
-	out << std::endl << "row permutations:" << std::endl;
-	out << "         ";
-	for( size_t row = 0; row < DSS.number_of_rows; row++ )
-		out << std::setw( manip_int ) << row;
-	out << std::endl << "HA[][7]: ";
-	for( size_t row = 0; row < DSS.number_of_rows; row++ )
-		out << std::setw( manip_int ) << DSS.HA[ row ][ 7 ];
-	out << std::endl << "HA[][8]: ";
-	for( size_t row = 0; row < DSS.number_of_rows; row++ )
-		out << std::setw( manip_int ) << DSS.HA[ row ][ 8 ];
-
-	out << std::endl << std::endl;
-	out << "\\---------------- COLUMN ORDERED LIST ----------------" << std::endl
-		<< "size of column-ordered list               :" << DSS.NCOL << std::endl
-		<< "last not free position in COL             :" << DSS.LCOL << std::endl
-		<< "number of non-zeros actualy stored in COL :" << DSS.CCOL << std::endl << std::endl;
-
-	// Print memory in usege
-	// =====================
-	out << "memory usage   :";
-	for( size_t Pos = 0; Pos < DSS.NCOL; Pos++ )
-	{
-		if( DSS.RNLU[ Pos ] != FREE )
-			out << "o";
-		else
-			out << ".";
-	}
-	out << std::endl;
-
-	// Print indexes
-	// =============
-	out << "indexes % 1    :";
-	for( size_t Pos = 0; Pos < DSS.NCOL; Pos++ )
-		out << Pos % 10;
-	out << std::endl;
-	out << "indexes % 10   :";
-	for( size_t Pos = 0; Pos < DSS.NCOL; Pos++ )
-	{
-		if( Pos % 10 == 0 )
-			out << ( Pos / 10 ) % 10;
-		else
-			out << " ";
-	}
-	out << std::endl;
-
-	// Print part of integrity table responsible for COL
-	// =================================================
-	for( size_t Index = 4; Index <= 6; Index++ )
-	{
-		// Print COL markers
-		// =================
-		out << "H[.][" << Index << "] % 10   :";
-		for( size_t Pos = 0; Pos < DSS.NCOL; Pos++ )
-		{
-			bool SignPrinted = false;
-			for( size_t ColNum = 0; ColNum < DSS.number_of_columns; ColNum++ )
-			{
-				if( DSS.HA[ ColNum ][ Index ] == Pos &&
-					!( Index == 5 && DSS.HA[ ColNum ][ 5 ] > DSS.HA[ ColNum ][ 6 ] && ( size_t )DSS.HA[ ColNum ][ 5 ] < DSS.NCOL && DSS.RNLU[ DSS.HA[ ColNum ][ 5 ] ] != FREE ) )
-				{
-					out << ( ColNum % 10 );
-					SignPrinted = true;
-				}
-			}
-			if( !SignPrinted )
-				out << " ";
-		}
-		out << std::endl;
-	}
-	out << std::endl;
-	// Print markers
-	// =============
-	out << "col =   ";
-	for( size_t col = 0; col < DSS.number_of_columns; col++ )
-		out << std::setw( manip_idx ) << col;
-	out << std::endl;
-
-	// Print part of integrity table responsible for COL
-	// =================================================
-	for( size_t Index = 4; Index <= 6; Index++ )
-	{
-		// Print ROL markers
-		// =================
-		out << "H[.][" << Index << "]:";
-		for( size_t col = 0; col < DSS.number_of_columns; col++ )
-			out << std::setw( manip_idx ) << DSS.HA[ col ][ Index ];
-		out << std::endl;
-	}
-
-	// Print stored in COL values and positions in COL
-	// ===============================================
-	out << std::endl << "(original column number, its current position):";
-	if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
-		out << "[RNLU,idx],..." << std::endl;
-	else
-		out << "[ALU,RNLU,idx],..." << std::endl;
-	for( size_t col = 0; col < DSS.number_of_columns; col++ )
-	{
-		if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
-			out << "(" << std::setw( manip_int ) << DSS.HA[ col ][ 9 ] << "," << std::setw( manip_int ) << col << ")";
-		else
-		{
-			out << std::setw( manip_double + 1 ) << " " << "(" << std::setw( manip_int ) << DSS.HA[ col ][ 9 ] << "," << std::setw( manip_int ) << col << ")";
-		}
-	}
-	out << std::endl;
-
-	size_t line = 0;
-	bool print = true;
-	while( print && line < DSS.number_of_rows )
-	{
-		print = false;
-		for( size_t col = 0; col < DSS.number_of_columns; col++ )
-		{
-			if( DSS.HA[ DSS.HA[ col ][ 9 ] ][ 4 ] == FREE )
-			{
-				out << std::setw( 2 * manip_int + 3 ) << " ";
-				continue;
-			}
-			int idx = DSS.HA[ DSS.HA[ col ][ 9 ] ][ 4 ] + line;
-			if( idx <= DSS.HA[ DSS.HA[ col ][ 9 ] ][ 6 ] )
-			{
-				print = true;
-				if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
-					out << "[" << std::setw( manip_int ) << DSS.RNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
-				else
-					out << "[" << std::setw( manip_double ) << DSS.ALU[ idx ] << "," << std::setw( manip_int ) << DSS.RNLU[ idx ] << "," << std::setw( manip_int ) << idx << "]";
-			}
-			else
-			{
-				if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
-					out << std::setw( 2 * manip_int + 3 ) << " ";
-				else
-					out << std::setw( manip_double + 2 * manip_int + 4 ) << " ";
-			}
-		}
-		out << std::endl;
-		line++;
-	}
-
-	// Print permutations of rows
-	// ==========================
-	out << std::endl << "column permutations:" << std::endl;
-	out << "         ";
-	for( size_t col = 0; col < DSS.number_of_columns; col++ )
-		out << std::setw( manip_int ) << col;
-	out << std::endl << "HA[][9]: ";
-	for( size_t col = 0; col < DSS.number_of_columns; col++ )
-		out << std::setw( manip_int ) << DSS.HA[ col ][ 9 ];
-	out << std::endl << "HA[][10]:";
-	for( size_t col = 0; col < DSS.number_of_columns; col++ )
-		out << std::setw( manip_int ) << DSS.HA[ col ][ 10 ];
-
-	// Print working parts of integrity table
-	// ======================================
-	out << std::endl << std::endl << "\\---------------- WORKING PART OF INTEGRITY TABLE  ----------------" << std::endl;
-	out << "         ";
-	for( size_t col = 0; col < DSS.number_of_columns; col++ )
-		out << std::setw( manip_int ) << col;
-	out << std::endl << "HA[][0]: ";
-	for( size_t col = 0; col < DSS.NHA; col++ )
-		out << std::setw( manip_int ) << DSS.HA[ col ][ 0 ];
-
-	out << std::endl << std::endl << "\\============================ MATRIX RECONSTRUCTION ============================";
-	if( DSS.dynamic_state != DYNAMIC_STATE::COL_INIT )
-	{
-		for( size_t row = 0; row < DSS.number_of_rows; row++ )
-		{
-			out << std::endl;
-			for( size_t col = 0; col < DSS.number_of_columns; col++ )
-			{
-				bool printed = false;
-				for( int idx = DSS.HA[ DSS.HA[ row ][ 7 ] ][ 1 ]; idx <= DSS.HA[ DSS.HA[ row ][ 7 ] ][ 3 ]; idx++ )
-				{
-					if( idx <= FREE )
-						break;
-					if( DSS.CNLU[ idx ] == DSS.HA[ col ][ 9 ] )
-					{
-						out << std::setw( manip_double ) << DSS.ALU[ idx ];
-						printed = true;
-						break;
-					}
-				}
-				if( !printed && row == col && std::abs( DSS.PIVOT[ row ] ) != 0 )
-					out << std::setw( manip_double ) << DSS.PIVOT[ row ];
-				else if( !printed )
-					out << std::setw( manip_double ) << 0;
-			}
-		}
-	}
-	else
-	{
-	}
+	// empty so far
 
 	return out;
 }
@@ -2669,7 +3015,7 @@ int dynamic_storage_scheme< TYPE >::check_integrity_test() const
 					break;
 				}
 			}
-			else if( CNLU[ idx ] < 0 || ALU[ idx ] == TYPE{ 0 } )
+			else if( CNLU[ idx ] < 0 )
 			{
 				out << "ROL integrity lack error in row " << row << std::endl;
 				ret_val = 2;
@@ -2884,5 +3230,6 @@ int dynamic_storage_scheme< TYPE >::check_integrity_test() const
 }
 
 #endif
+
 
 
