@@ -40,7 +40,7 @@ public:
 	/// not always real order of a matrix, just min(number_of_rows,number_of_columns)
 	const size_t order;
 
-	//private:
+private:
 		/// array of ORIGinal values of the input matrix A
 	std::vector< TYPE > AORIG;
 	/// array of ORIGinal row numbers of the input matrix A (indexed from 0)
@@ -552,9 +552,7 @@ private:
 	/// constant multiplier used to expand COL/ROL space due to fillins
 	const float expanding_mult{ 0.5 };
 
-
 public:
-
 	/// Constructor - input_storage_scheme require and two floats that determine sizes of storage lists
 	///               in flollowing way: NROL = mult1 * ISS->NNZ, NCOL = mult2 * NROL
 	dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS, double mult1, double mult2 = 0.7, DYNAMIC_STATE _dynamic_state = DYNAMIC_STATE::ROL_INIT );
