@@ -8,13 +8,12 @@
 #include <sparse_matrices.hpp>
 
 std::random_device rd;
-std::mt19937 g( 123u /*rd()*/ );
-//std::mt19937 g( rd() );
+std::mt19937 g( rd() );
 
 std::uniform_int_distribution< int > bool_rng( 0, 1 );
 
 template < typename T >
-void random_vector_values( std::vector< T >* vec, T min_val, T max_val )
+void random_vector_values( std::vector< T >* vec, double min_val, double max_val )
 {
 	if( min_val <= 0 || max_val <= 0 )
 		throw std::invalid_argument( "Invalid parameters" );
@@ -26,12 +25,12 @@ void random_vector_values( std::vector< T >* vec, T min_val, T max_val )
 }
 
 template < typename T >
-void random_vector_values( std::vector< std::complex< T > >* vec, std::complex< T > min_val, std::complex< T > max_val )
+void random_vector_values( std::vector< std::complex< T > >* vec, double min_val, double max_val )
 {
-	if( min_val.real() <= 0 || max_val.real() <= 0 )
+	if( min_val <= 0 || max_val <= 0 )
 		throw std::invalid_argument( "Invalid parameters" );
 
-	std::uniform_real_distribution< T > elem_rng( min_val.real(), max_val.real() );
+	std::uniform_real_distribution< T > elem_rng( min_val, max_val );
 
 	for( auto& item : *vec )
 	{

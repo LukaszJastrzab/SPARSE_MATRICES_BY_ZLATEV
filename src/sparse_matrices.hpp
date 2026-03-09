@@ -69,11 +69,15 @@ public:
 		NNZ( 0 )
 	{
 	}
+
+	/// double type used in solving / refinement
+	using DTYPE = typename double_type< TYPE >::type;
+
 	/// method to adding elements
 	void add_element( TYPE value, size_t row, size_t col );
 
 	/// method counts residual vector r_i = Ax_i - b
-	void count_rasidual_vector( const std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >& r ) const;
+	void count_rasidual_vector( const std::vector< DTYPE >& x, const std::vector< DTYPE >& b, std::vector< DTYPE >& r ) const;
 	/// assigned operator
 	input_storage_scheme< TYPE >& operator= ( input_storage_scheme< TYPE >& ISS );
 private:
@@ -154,18 +158,15 @@ void input_storage_scheme< TYPE >::add_element( TYPE value,
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-void input_storage_scheme< TYPE >::count_rasidual_vector( const std::vector< TYPE >& x,
-	const std::vector< TYPE >& b,
-	std::vector< TYPE >& r
-) const
+void input_storage_scheme< TYPE >::count_rasidual_vector( const std::vector< DTYPE >& x, const std::vector< DTYPE >& b, std::vector< DTYPE >& r ) const
 {
 	for( size_t row = 0; row < number_of_rows; ++row )
 		r[ row ] = -b[ row ];
 	for( size_t idx = 0; idx < NNZ; ++idx )
-		r[ RNORIG[ idx ] ] += ( x[ CNORIG[ idx ] ] * AORIG[ idx ] );
+		r[ RNORIG[ idx ] ] += ( x[ CNORIG[ idx ] ] * static_cast< DTYPE >( AORIG[ idx ] ) );
 }
 
-//--------------------------------------------------------------------------- count_rasidual_vector
+//--------------------------------------------------------------------------- operator=
 /**
 *  The assignment operator
 *
@@ -559,6 +560,9 @@ public:
 	/// Destructor
 	~dynamic_storage_scheme() = default;
 
+	/// double type used in solving / refinement
+	using DTYPE = typename double_type< TYPE >::type;
+
 	/// Method gets string with logged warnings and errors
 	std::string get_logged_errors( void ) { return logged_errors; }
 	/// Method clears logged_errors
@@ -568,19 +572,19 @@ public:
 	/// Method used for LU decomposition of matrix (Gauss elimination)
 	void LU_decomposition( PIVOTAL_STRATEGY strategy, size_t _search, double _mult, double eps, LD_PREPARATION pre_sort = LD_PREPARATION::NONE );
 	/// Method solves LU problem (LU_decomposition is needed to call before)
-	void solve_LU( std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >* y = nullptr ) const;
+	void solve_LU( std::vector< DTYPE >& x, const std::vector< DTYPE >& b, std::vector< DTYPE >* y = nullptr ) const;
 	/// Method used for QR decomposition of matrix (Householder)
 	void QR_decomposition( LD_PREPARATION pre_sort = LD_PREPARATION::SORT );
 	/// Method solves LU problem (LU_decomposition is needed to call before)
-	void solve_QR( std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >* y = nullptr ) const;
+	void solve_QR( std::vector< DTYPE >& x, const std::vector< DTYPE >& b, std::vector< DTYPE >* y = nullptr ) const;
 	/// Method improves the accuracy of the solution
-	void iterative_refinement( const input_storage_scheme< TYPE >& ISS, std::vector< TYPE >& x, const std::vector< TYPE >& b, const double acc, const size_t max_it ) const;
+	void iterative_refinement( const input_storage_scheme< TYPE >& ISS, std::vector< DTYPE >& x, const std::vector< DTYPE >& b, const double acc, const size_t max_it ) const;
 	/// Method prepares matrix to SOR iterations
 	void iterative_preparation( void );
 	/// Method sets relaxation parameter omega
 	void set_relaxation_parameter( double _relaxation_parameter );
 	/// Method performs one iteration of SOR method
-	void SOR_iteration( std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >& prev_x ) const;
+	void SOR_iteration( std::vector< DTYPE >& x, const std::vector< DTYPE >& b, std::vector< DTYPE >& prev_x ) const;
 
 	/// ==================== FUNCTIONS WRITTEN ONLY FOR TESTS ====================
 	/// returns amount of non zeros elements
@@ -655,11 +659,7 @@ private:
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
 dynamic_storage_scheme< TYPE >::
-dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS,
-	double mult1,
-	double mult2,
-	DYNAMIC_STATE _dynamic_state
-)
+dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS, double mult1, double mult2, DYNAMIC_STATE _dynamic_state )
 	:
 	number_of_rows( ISS.number_of_rows ),
 	number_of_columns( ISS.number_of_columns ),
@@ -888,13 +888,7 @@ dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS,
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::
-LU_decomposition( PIVOTAL_STRATEGY strategy,
-	size_t _search,
-	double _mult,
-	double eps,
-	LD_PREPARATION pre_sort
-)
+void dynamic_storage_scheme< TYPE >::LU_decomposition( PIVOTAL_STRATEGY strategy, size_t _search, double _mult, double eps, LD_PREPARATION pre_sort )
 {
 	if( dynamic_state != DYNAMIC_STATE::ROL_INIT )
 		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::LU_decomposition: ROL_INIT state is required\n" );
@@ -1071,10 +1065,7 @@ LU_decomposition( PIVOTAL_STRATEGY strategy,
 */
 //------------------------------------------------------------------------------------------------------
 template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::solve_LU( std::vector< TYPE >& x,
-	const std::vector< TYPE >& b,
-	std::vector< TYPE >* y
-) const
+void dynamic_storage_scheme< TYPE >::solve_LU( std::vector< DTYPE >& x, const std::vector< DTYPE >& b, std::vector< DTYPE >* y ) const
 {
 	if( dynamic_state != DYNAMIC_STATE::LU_DECOMPOSED )
 		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::solve_LU: LU_decomposition is needed before" );
@@ -1083,7 +1074,7 @@ void dynamic_storage_scheme< TYPE >::solve_LU( std::vector< TYPE >& x,
 	( "dynamic_storage_scheme< TYPE >::solve_LU: matrix is not squared" );
 
 	const size_t N = number_of_columns;
-	std::vector< TYPE > y_alloc;
+	std::vector< DTYPE > y_alloc;
 
 	if( y == NULL )
 	{
@@ -1100,19 +1091,19 @@ void dynamic_storage_scheme< TYPE >::solve_LU( std::vector< TYPE >& x,
 		y->at( row ) = b[ orig_row ];
 		TYPE sum = 0;
 		for( int idx = HA[ orig_row ][ 1 ]; idx < HA[ orig_row ][ 2 ]; idx++ )
-			sum += ALU[ idx ] * y->at( HA[ CNLU[ idx ] ][ 10 ] );
+			sum += static_cast< DTYPE >( ALU[ idx ] ) * y->at( HA[ CNLU[ idx ] ][ 10 ] );
 		y->at( row ) -= sum;
 	}
 	// second solve the equation Ux = y
 	// ================================
-	x[ HA[ N - 1 ][ 9 ] ] = y->at( N - 1 ) / PIVOT[ N - 1 ];
+	x[ HA[ N - 1 ][ 9 ] ] = y->at( N - 1 ) / static_cast< DTYPE >( PIVOT[ N - 1 ] );
 	for( int row = N - 2; row >= 0; row-- )
 	{
 		const int col = HA[ row ][ 9 ];
 		const int orig_row = HA[ row ][ 7 ];
 		x[ col ] = y->at( row );
 		for( int idx = HA[ orig_row ][ 2 ]; idx <= HA[ orig_row ][ 3 ]; idx++ )
-			x[ col ] -= ALU[ idx ] * x[ CNLU[ idx ] ];
+			x[ col ] -= static_cast< DTYPE >( ALU[ idx ] ) * x[ CNLU[ idx ] ];
 		x[ col ] /= PIVOT[ row ];
 	}
 }
@@ -1279,7 +1270,7 @@ void dynamic_storage_scheme< TYPE >::QR_decomposition( LD_PREPARATION pre_sort )
 */
 //------------------------------------------------------------------------------------------------------
 template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::solve_QR( std::vector< TYPE >& x, const std::vector< TYPE >& b, std::vector< TYPE >* y ) const
+void dynamic_storage_scheme< TYPE >::solve_QR( std::vector< DTYPE >& x, const std::vector< DTYPE >& b, std::vector< DTYPE >* y ) const
 {
 	if( dynamic_state != DYNAMIC_STATE::QR_DECOMPOSED )
 		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::solve_QR: QR_decomposition is needed before" );
@@ -1290,7 +1281,7 @@ void dynamic_storage_scheme< TYPE >::solve_QR( std::vector< TYPE >& x, const std
 
 	const auto N = std::min( number_of_rows - 1, number_of_columns );
 
-	std::vector< TYPE > y_alloc;
+	std::vector< DTYPE > y_alloc;
 
 	if( y == NULL )
 		y = &y_alloc;
@@ -1302,13 +1293,13 @@ void dynamic_storage_scheme< TYPE >::solve_QR( std::vector< TYPE >& x, const std
 	{
 		const int s_orig_col = HA[ step ][ 9 ];
 
-		TYPE vTb{ conjugate( VFIRST[ step ] ) * y->at( step ) };
+		DTYPE vTb{ conjugate( static_cast< DTYPE >( VFIRST[ step ] ) ) * y->at( step ) };
 		for( int r_idx{ HA[ s_orig_col ][ 5 ] }; r_idx <= HA[ s_orig_col ][ 6 ]; ++r_idx )
-			vTb += conjugate( ALU[ r_idx ] ) * y->at( RNLU[ r_idx ] );
+			vTb += conjugate( static_cast< DTYPE >( ALU[ r_idx ] ) ) * y->at( RNLU[ r_idx ] );
 
-		y->at( step ) -= PIVOT[ step ] * VFIRST[ step ] * vTb;
+		y->at( step ) -= static_cast< DTYPE >( PIVOT[ step ] * VFIRST[ step ] ) * vTb;
 		for( int r_idx{ HA[ s_orig_col ][ 5 ] }; r_idx <= HA[ s_orig_col ][ 6 ]; ++r_idx )
-			y->at( RNLU[ r_idx ] ) -= PIVOT[ step ] * ALU[ r_idx ] * vTb;
+			y->at( RNLU[ r_idx ] ) -= static_cast< DTYPE >( PIVOT[ step ] * ALU[ r_idx ] ) * vTb;
 	}
 
 	// then solve Rx = Q^T * b by back substitution
@@ -1321,7 +1312,7 @@ void dynamic_storage_scheme< TYPE >::solve_QR( std::vector< TYPE >& x, const std
 		y->at( c ) /= ALU[ r_idx-- ];
 		while( r_idx >= HA[ s_orig_col ][ 4 ] )
 		{
-			y->at( RNLU[ r_idx ] ) -= ALU[ r_idx ] * y->at( c );
+			y->at( RNLU[ r_idx ] ) -= static_cast< DTYPE >( ALU[ r_idx ] ) * y->at( c );
 			--r_idx;
 		}
 
@@ -1344,21 +1335,16 @@ void dynamic_storage_scheme< TYPE >::solve_QR( std::vector< TYPE >& x, const std
 */
 //---------------------------------------------------------------------------------------------------------------------
 template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::iterative_refinement( const input_storage_scheme< TYPE >& ISS,
-	std::vector< TYPE >& x,
-	const std::vector< TYPE >& b,
-	const double acc,
-	const size_t max_it
-) const
+void dynamic_storage_scheme< TYPE >::iterative_refinement( const input_storage_scheme< TYPE >& ISS, std::vector< DTYPE >& x, const std::vector< DTYPE >& b, const double acc, const size_t max_it ) const
 {
 	if( number_of_columns != number_of_rows )
 		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::iterative_refinement: matrix is not squared" );
 
 	const size_t N = number_of_columns;
 
-	std::vector< TYPE > d( N );
-	std::vector< TYPE > r( N );
-	std::vector< TYPE > y( N );
+	std::vector< DTYPE > d( N );
+	std::vector< DTYPE > r( N );
+	std::vector< DTYPE > y( N );
 
 	size_t iteration = 0;
 	ISS.count_rasidual_vector( x, b, r );
@@ -1477,10 +1463,7 @@ void dynamic_storage_scheme< TYPE >::iterative_preparation( void )
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::SOR_iteration( std::vector< TYPE >& x,
-	const std::vector< TYPE >& b,
-	std::vector< TYPE >& prev_x
-) const
+void dynamic_storage_scheme< TYPE >::SOR_iteration( std::vector< DTYPE >& x, const std::vector< DTYPE >& b, std::vector< DTYPE >& prev_x ) const
 {
 	if( dynamic_state != DYNAMIC_STATE::ITERATIVE )
 		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::SOR_iteration: iterative_preparation is needed before" );
@@ -1492,12 +1475,12 @@ void dynamic_storage_scheme< TYPE >::SOR_iteration( std::vector< TYPE >& x,
 		x[ row ] = b[ row ];
 		int idx = HA[ row ][ 1 ];
 		for( ; idx < HA[ row ][ 2 ]; ++idx )
-			x[ row ] -= ( ALU[ idx ] * x[ CNLU[ idx ] ] );
+			x[ row ] -= ( static_cast< DTYPE >( ALU[ idx ] ) * x[ CNLU[ idx ] ] );
 		for( ; idx <= HA[ row ][ 3 ]; ++idx )
-			x[ row ] -= ( ALU[ idx ] * prev_x[ CNLU[ idx ] ] );
+			x[ row ] -= ( static_cast< DTYPE >( ALU[ idx ] ) * prev_x[ CNLU[ idx ] ] );
 		x[ row ] *= relaxation_parameter;
 		x[ row ] /= PIVOT[ row ];
-		x[ row ] += ( static_cast< TYPE >( 1 ) - static_cast< TYPE >( relaxation_parameter ) ) * prev_x[ row ];
+		x[ row ] += ( static_cast< DTYPE >( 1 - relaxation_parameter ) ) * prev_x[ row ];
 	}
 }
 
@@ -1551,9 +1534,7 @@ void dynamic_storage_scheme< TYPE >::print_sparsity_pattern( const char* file_na
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-inline void dynamic_storage_scheme< TYPE >::permute_rows( size_t pos1,
-	size_t pos2
-)
+inline void dynamic_storage_scheme< TYPE >::permute_rows( size_t pos1, size_t pos2 )
 {
 	if( pos1 == pos2 )
 		return;
@@ -1576,9 +1557,7 @@ inline void dynamic_storage_scheme< TYPE >::permute_rows( size_t pos1,
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-inline void dynamic_storage_scheme< TYPE >::permute_cols( size_t pos1,
-	size_t pos2
-)
+inline void dynamic_storage_scheme< TYPE >::permute_cols( size_t pos1, size_t pos2 )
 {
 	if( pos1 == pos2 )
 		return;
@@ -2058,9 +2037,7 @@ inline void dynamic_storage_scheme< TYPE >::deactivate_element_in_COL( size_t in
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-inline void dynamic_storage_scheme< TYPE >::eliminate_element_in_ROL( size_t index,
-	size_t row
-)
+inline void dynamic_storage_scheme< TYPE >::eliminate_element_in_ROL( size_t index, size_t row )
 {
 	ALU[ index ] = ALU[ HA[ row ][ 3 ] ];
 	CNLU[ index ] = CNLU[ HA[ row ][ 3 ] ];
@@ -2085,9 +2062,7 @@ inline void dynamic_storage_scheme< TYPE >::eliminate_element_in_ROL( size_t ind
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-inline void dynamic_storage_scheme< TYPE >::eliminate_element_in_COL( size_t index,
-	size_t col
-)
+inline void dynamic_storage_scheme< TYPE >::eliminate_element_in_COL( size_t index, size_t col )
 {
 	RNLU[ index ] = RNLU[ HA[ col ][ 6 ] ];
 	RNLU[ HA[ col ][ 6 ] ] = FREE;
@@ -2215,10 +2190,7 @@ void dynamic_storage_scheme< TYPE >::choose_pivot_by_ONE_ROW_SEARCHING( size_t s
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::choose_pivot_by_MARKOWITZ_COST( size_t stage,
-	size_t search,
-	double mult
-)
+void dynamic_storage_scheme< TYPE >::choose_pivot_by_MARKOWITZ_COST( size_t stage, size_t search, double mult )
 {
 	const size_t LastSearch = ( stage + search < number_of_rows ? stage + search : number_of_rows );
 	size_t INDEX{ 0 };
@@ -2909,9 +2881,7 @@ void dynamic_storage_scheme< TYPE >::print_scheme_to_file( const char* file_name
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE2>
-std::ostream& operator<<( std::ostream& out,
-	const dynamic_storage_scheme< TYPE2>& DSS
-	)
+std::ostream& operator<<( std::ostream& out, const dynamic_storage_scheme< TYPE2>& DSS )
 {
 	// empty so far
 

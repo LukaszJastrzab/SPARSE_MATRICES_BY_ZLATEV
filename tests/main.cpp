@@ -17,11 +17,14 @@ template< typename T >
 class non_singular_linear_equation : public ::testing::Test
 {
 protected:
+	/// double type used in solving / refinement
+	using DT = typename double_type< T >::type;
+
 	input_storage_scheme< T > ISS;
 	unique_ptr< dynamic_storage_scheme< T > > DSS;
 
-	vector< T > b, x, r;
-	T low_val{ 0.01 }, high_val{ 10.0 };
+	vector< DT > b, x, r;
+	double low_val{ 0.01 }, high_val{ 10.0 };
 
 	filesystem::path test_dir{ "test_prints" };
 
@@ -39,7 +42,7 @@ protected:
 
 		string s_pattern_file = test_dir.string() + "/sparsity_pattern_test_" + to_string( g_test_id ) + ".txt";
 
-		if( std::is_same_v< real_type< T >::type, double> )
+		if( std::is_same_v< real_type< T >::type, double > )
 		{
 			low_val = 0.00001;
 			high_val = 10000.0;
