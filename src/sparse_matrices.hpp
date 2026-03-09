@@ -134,10 +134,7 @@ input_storage_scheme< TYPE >::input_storage_scheme( input_storage_scheme< TYPE >
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-void input_storage_scheme< TYPE >::add_element( TYPE value,
-	size_t row,
-	size_t col
-)
+void input_storage_scheme< TYPE >::add_element( TYPE value, size_t row, size_t col )
 {
 	if( row >= number_of_rows || col >= number_of_columns )
 		throw std::out_of_range( "input_storage_scheme< TYPE >::add_element: wrong row/col number" );
@@ -148,7 +145,7 @@ void input_storage_scheme< TYPE >::add_element( TYPE value,
 	const_cast< size_t& >( NNZ )++;
 }
 
-//--------------------------------------------------------------------------- count_rasidual_vector,  
+//--------------------------------------------------------------------------- count_rasidual_vector
 /**
 *  Method used to counting residual vector
 *
@@ -194,9 +191,7 @@ input_storage_scheme< TYPE >& input_storage_scheme< TYPE >:: operator= ( input_s
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-std::ostream& operator<< ( std::ostream& out,
-	const input_storage_scheme< TYPE >& ISS
-	)
+std::ostream& operator<< ( std::ostream& out, const input_storage_scheme< TYPE >& ISS )
 {
 	const int manip_typ = 6;
 	const int manip_int = 3;
@@ -234,14 +229,10 @@ std::ostream& operator<< ( std::ostream& out,
 //-------------------------------------------------------------------------------------------------
 /// Declaration
 template < typename TYPE >
-void load_matrix_from_file( const char* file_name,
-	input_storage_scheme< TYPE >* ISS
-);
+void load_matrix_from_file( const char* file_name, input_storage_scheme< TYPE >* ISS );
 /// template for specjalization in loading elements of specified type
 template < typename TYPE >
-void load_matrix_from_file( const char* file_name,
-	input_storage_scheme< TYPE >* ISS
-)
+void load_matrix_from_file( const char* file_name, input_storage_scheme< TYPE >* ISS )
 {
 	std::ifstream input_file;
 	char buffer[ 128 ];
@@ -279,9 +270,7 @@ void load_matrix_from_file( const char* file_name,
 }
 ///  Specjalization for double
 template <>
-void load_matrix_from_file( const char* file_name,
-	input_storage_scheme< double >* ISS
-)
+void load_matrix_from_file( const char* file_name, input_storage_scheme< double >* ISS )
 {
 	std::ifstream input_file;
 	char buffer[ 128 ];
@@ -350,14 +339,10 @@ void load_matrix_from_file( const char* file_name,
 //-------------------------------------------------------------------------------------------------
 /// Declaration
 template < typename TYPE >
-void load_scheme_from_file( const char* file_name,
-	input_storage_scheme< TYPE >* ISS
-);
+void load_scheme_from_file( const char* file_name, input_storage_scheme< TYPE >* ISS );
 /// Declaration
 template < typename TYPE >
-void load_scheme_from_file( const char* file_name,
-	input_storage_scheme< TYPE >* ISS
-)
+void load_scheme_from_file( const char* file_name, input_storage_scheme< TYPE >* ISS )
 {
 	std::ifstream input_file;
 	char buffer[ 128 ];
