@@ -7,7 +7,7 @@
 
 using namespace std;
 
-constexpr double eps_float{ 1e-3 };
+constexpr double eps_float{ 1e-5 };
 constexpr double eps_double{ 1e-10 };
 
 static size_t g_test_id{ 0 };
