@@ -132,22 +132,28 @@ protected:
 TYPED_TEST_SUITE( non_singular_linear_equation_COL_INIT, test_types );
 
 
-TYPED_TEST( non_singular_linear_equation_COL_INIT, QR_decomposition_none )
+TYPED_TEST( non_singular_linear_equation_COL_INIT, QR_decomposition_none_scaling )
 {
 	// decompose A=QR using Householder alghoritm
-	EXPECT_NO_THROW( DSS->QR_decomposition( LD_PREPARATION::NONE ) );
+	EXPECT_NO_THROW( DSS->QR_decomposition( true, LD_PREPARATION::NONE ) );
 }
 
-TYPED_TEST( non_singular_linear_equation_COL_INIT, QR_decomposition_sort_cols )
+TYPED_TEST( non_singular_linear_equation_COL_INIT, QR_decomposition_sort_cols_scaling )
 {
 	// decompose A=QR using Householder alghoritm
-	EXPECT_NO_THROW( DSS->QR_decomposition( LD_PREPARATION::SORT ) );
+	EXPECT_NO_THROW( DSS->QR_decomposition( true, LD_PREPARATION::SORT ) );
 }
 
-TYPED_TEST( non_singular_linear_equation_COL_INIT, QR_decomposition_sort_cols_amd )
+TYPED_TEST( non_singular_linear_equation_COL_INIT, QR_decomposition_sort_cols_no_scaling )
 {
 	// decompose A=QR using Householder alghoritm
-	EXPECT_NO_THROW( DSS->QR_decomposition( LD_PREPARATION::AMD ) );
+	EXPECT_NO_THROW( DSS->QR_decomposition( false, LD_PREPARATION::SORT ) );
+}
+
+TYPED_TEST( non_singular_linear_equation_COL_INIT, QR_decomposition_sort_cols_amd_scaling )
+{
+	// decompose A=QR using Householder alghoritm
+	EXPECT_NO_THROW( DSS->QR_decomposition( true, LD_PREPARATION::AMD ) );
 }
 
 

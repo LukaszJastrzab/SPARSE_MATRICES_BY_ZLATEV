@@ -561,7 +561,7 @@ public:
 	/// Method solves LU problem (LU_decomposition is needed to call before)
 	void solve_LU( std::vector< DTYPE >& x, const std::vector< DTYPE >& b, std::vector< DTYPE >* y = nullptr ) const;
 	/// Method used for QR decomposition of matrix (Householder)
-	void QR_decomposition( LD_PREPARATION pre_sort = LD_PREPARATION::SORT );
+	void QR_decomposition( bool scaling, LD_PREPARATION pre_sort = LD_PREPARATION::SORT );
 	/// Method solves LU problem (LU_decomposition is needed to call before)
 	void solve_QR( std::vector< DTYPE >& x, const std::vector< DTYPE >& b, std::vector< DTYPE >* y = nullptr ) const;
 	/// Method improves the accuracy of the solution
@@ -769,7 +769,7 @@ dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS, double mult1, d
 			for( int j = HA[ i ][ 1 ]; j <= HA[ i ][ 3 ]; j++ )
 			{
 				const int l = CNLU[ j ];
-				RNLU[ static_cast< size_t >( HA[ l ][ 4 ] + HA[ l ][ 6 ] ) ] = i;
+				RNLU[ HA[ l ][ 4 ] + HA[ l ][ 6 ] ] = i;
 				++HA[ l ][ 6 ];
 			}
 		}
@@ -1109,15 +1109,16 @@ void dynamic_storage_scheme< TYPE >::solve_LU( std::vector< DTYPE >& x, const st
 /**
 *  Main functionality of the dynamic_storage_scheme, decompusition perfomed by Householder algorithm
 *  the rsults are factors Q (ortogonal/unitar) and R (upper triangular) - both store at one schem "in situ"
-
-*  @param pre_sort - (default = NONE) - [in] flag indicating if pre row sorting / aprox min degree
+*
+*  @param scaling                      - [in] perform / do not perfom scaling
+*  @param pre_sort - (default = NONE)  - [in] flag indicating if pre row sorting / aprox min degree
 *                                        should be performed
 *  @throw exception                    - when matrix is not square, singular or there is not
 *                                        enough memory in ROL/COL
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::QR_decomposition( LD_PREPARATION pre_sort )
+void dynamic_storage_scheme< TYPE >::QR_decomposition( bool scaling, LD_PREPARATION pre_sort )
 {
 	if( dynamic_state != DYNAMIC_STATE::COL_INIT )
 		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::QR_decomposition: COL_INIT state is required\n" );
@@ -1133,6 +1134,11 @@ void dynamic_storage_scheme< TYPE >::QR_decomposition( LD_PREPARATION pre_sort )
 	std::vector< int > mod_col( number_of_rows );
 
 	const int N = ( int )number_of_rows - 1;
+
+	if( scaling )
+		cols_scaling();
+	else
+		scalars.resize( number_of_columns, 1.0 );
 
 	if( pre_sort == LD_PREPARATION::SORT )
 		sort_cols();
@@ -1294,9 +1300,9 @@ void dynamic_storage_scheme< TYPE >::solve_QR( std::vector< DTYPE >& x, const st
 		for( int r_idx{ HA[ s_orig_col ][ 5 ] }; r_idx <= HA[ s_orig_col ][ 6 ]; ++r_idx )
 			vTb += conjugate( static_cast< DTYPE >( ALU[ r_idx ] ) ) * y->at( RNLU[ r_idx ] );
 
-		y->at( step ) -= static_cast< DTYPE >( PIVOT[ step ] * VFIRST[ step ] ) * vTb;
+		y->at( step ) -= static_cast< DTYPE >( PIVOT[ step ] ) * static_cast< DTYPE >( VFIRST[ step ] ) * vTb;
 		for( int r_idx{ HA[ s_orig_col ][ 5 ] }; r_idx <= HA[ s_orig_col ][ 6 ]; ++r_idx )
-			y->at( RNLU[ r_idx ] ) -= static_cast< DTYPE >( PIVOT[ step ] * ALU[ r_idx ] ) * vTb;
+			y->at( RNLU[ r_idx ] ) -= static_cast< DTYPE >( PIVOT[ step ] ) * static_cast< DTYPE >( ALU[ r_idx ] ) * vTb;
 	}
 
 	// then solve Rx = Q^T * b by back substitution
@@ -1315,6 +1321,9 @@ void dynamic_storage_scheme< TYPE >::solve_QR( std::vector< DTYPE >& x, const st
 
 		x[ HA[ c ][ 9 ] ] = y->at( c );
 	}
+
+	for( size_t c{ 0 }; c < number_of_columns; ++c )
+		x[ c ] *= static_cast< DTYPE >( scalars[ c ] );
 }
 
 //------------------------------------------------------------------------------------------------ iterative_refinement
@@ -1675,7 +1684,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 		}
 		else
 		{
-			size_t new_mem = NROL * expanding_mult;
+			size_t new_mem = static_cast< size_t >( NROL * expanding_mult );
 
 			if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
 				ALU.insert( ALU.end(), new_mem, TYPE{ 0 } );
@@ -1711,7 +1720,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 		}
 		else
 		{
-			size_t new_mem = NROL * expanding_mult;
+			size_t new_mem = static_cast< size_t >( NROL * expanding_mult );
 
 			if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
 				ALU.insert( ALU.end(), new_mem, TYPE{ 0 } );
@@ -1884,7 +1893,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val, int o
 		}
 		else
 		{
-			size_t new_mem = NCOL * expanding_mult;
+			size_t new_mem = static_cast< size_t >( NCOL * expanding_mult );
 
 			if( dynamic_state == DYNAMIC_STATE::COL_INIT )
 				ALU.insert( ALU.end(), new_mem, TYPE{ 0 } );
@@ -1920,7 +1929,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val, int o
 		}
 		else
 		{
-			size_t new_mem = NCOL * expanding_mult;
+			size_t new_mem = static_cast< size_t >( NCOL * expanding_mult );
 
 			if( dynamic_state == DYNAMIC_STATE::COL_INIT )
 				ALU.insert( ALU.end(), new_mem, TYPE{ 0 } );
@@ -2508,6 +2517,38 @@ void dynamic_storage_scheme< TYPE >::rows_scaling()
 
 		for( int c_idx{ HA[ row ][ 1 ] }; c_idx <= HA[ row ][ 3 ]; ++c_idx )
 			ALU[ c_idx ] *= static_cast< TYPE >( scalars[ row ] );
+	}
+}
+
+//------------------------------------------------------------------------------------ cols_scaling
+/**
+*  Method performs cols scaling to improve numerical stability
+*  cols scaling is used for QR_decomposition
+*/
+//-------------------------------------------------------------------------------------------------
+template < typename TYPE >
+void dynamic_storage_scheme< TYPE >::cols_scaling()
+{
+	if( dynamic_state != DYNAMIC_STATE::COL_INIT )
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::cols_scaling: COL_INIT state is required" );
+
+	double max_scalar{ 0.0 };
+	scalars.resize( number_of_columns, 0.0 );
+
+	for( size_t col{ 0 }; col < number_of_columns; ++col )
+	{
+		for( int r_idx{ HA[ col ][ 4 ] }; r_idx <= HA[ col ][ 6 ]; ++r_idx )
+			scalars[ col ] += abs_val( ALU[ r_idx ] );
+
+		max_scalar = std::max( max_scalar, scalars[ col ] );
+	}
+
+	for( size_t col{ 0 }; col < number_of_columns; ++col )
+	{
+		scalars[ col ] = ( max_scalar / scalars[ col ] );
+
+		for( int r_idx{ HA[ col ][ 4 ] }; r_idx <= HA[ col ][ 6 ]; ++r_idx )
+			ALU[ r_idx ] *= static_cast< TYPE >( scalars[ col ] );
 	}
 }
 
