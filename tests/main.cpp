@@ -91,28 +91,34 @@ using test_types = ::testing::Types< float, double, complex< float >, complex< d
 
 TYPED_TEST_SUITE( non_singular_linear_equation, test_types );
 
-TYPED_TEST( non_singular_linear_equation, LU_decomposition_MarkowitzCost_NONE )
+TYPED_TEST( non_singular_linear_equation, LU_decomposition_MarkowitzCost_NONE_scaling )
 {
 	// decompose A=LU using Gauss elimination
-	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::MARKOWITZ_COST, get_mx_size(), 1.0, 0.0, LD_PREPARATION::NONE ) );
+	EXPECT_NO_THROW( DSS->LU_decomposition( true, PIVOTAL_STRATEGY::MARKOWITZ_COST, get_mx_size(), 1.0, 0.0, LD_PREPARATION::NONE ) );
 }
 
-TYPED_TEST( non_singular_linear_equation, LU_decomposition_MarkowitzCost_SORT )
+TYPED_TEST( non_singular_linear_equation, LU_decomposition_MarkowitzCost_NONE_no_scaling )
+{
+	// decompose A=LU using Gauss elimination
+	EXPECT_NO_THROW( DSS->LU_decomposition( false, PIVOTAL_STRATEGY::MARKOWITZ_COST, get_mx_size(), 1.0, 0.0, LD_PREPARATION::NONE ) );
+}
+
+TYPED_TEST( non_singular_linear_equation, LU_decomposition_MarkowitzCost_SORT_scaling )
 {	
 	// decompose A=LU using Gauss elimination
-	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::MARKOWITZ_COST, 10, 1.0, 0.0, LD_PREPARATION::SORT ) );
+	EXPECT_NO_THROW( DSS->LU_decomposition( true, PIVOTAL_STRATEGY::MARKOWITZ_COST, 10, 1.0, 0.0, LD_PREPARATION::SORT ) );
 }
 
-TYPED_TEST( non_singular_linear_equation, LU_decomposition_MarkowitzCost_AMD )
+TYPED_TEST( non_singular_linear_equation, LU_decomposition_MarkowitzCost_AMD_no_scaling )
 {
 	// decompose A=LU using Gauss elimination
-	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::MARKOWITZ_COST, 10, 1.0, 0.0, LD_PREPARATION::AMD ) );
+	EXPECT_NO_THROW( DSS->LU_decomposition( false, PIVOTAL_STRATEGY::MARKOWITZ_COST, 10, 1.0, 0.0, LD_PREPARATION::AMD ) );
 }
 
-TYPED_TEST( non_singular_linear_equation, LU_decomposition_FillinMin_AMD )
+TYPED_TEST( non_singular_linear_equation, LU_decomposition_FillinMin_AMD_scaling )
 {
 	// decompose A=LU using Gauss elimination
-	EXPECT_NO_THROW( DSS->LU_decomposition( PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, 1, 1.0, 0.0, LD_PREPARATION::AMD ) );
+	EXPECT_NO_THROW( DSS->LU_decomposition( true, PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION, 1, 1.0, 0.0, LD_PREPARATION::AMD ) );
 }
 
 

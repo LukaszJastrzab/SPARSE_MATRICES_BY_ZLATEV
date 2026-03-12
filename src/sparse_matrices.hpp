@@ -533,6 +533,8 @@ private:
 	DYNAMIC_STATE dynamic_state{ DYNAMIC_STATE::NONE };
 	/// relaxation parameter for SOR method
 	double relaxation_parameter{ 1.0 };
+	/// row / column scaling parameters
+	std::vector< double > scalars;
 	/// output string log all errors and warnings obtained during the computation
 	std::string logged_errors;
 	/// constant multiplier used to expand COL/ROL space due to fillins
@@ -555,7 +557,7 @@ public:
 	/// Method to dump the contents of the schema
 	void print_scheme_to_file( const char* file_name );
 	/// Method used for LU decomposition of matrix (Gauss elimination)
-	void LU_decomposition( PIVOTAL_STRATEGY strategy, size_t _search, double _mult, double eps, LD_PREPARATION pre_sort = LD_PREPARATION::NONE );
+	void LU_decomposition( bool scaling, PIVOTAL_STRATEGY strategy, size_t _search, double _mult, double eps, LD_PREPARATION pre_sort = LD_PREPARATION::NONE );
 	/// Method solves LU problem (LU_decomposition is needed to call before)
 	void solve_LU( std::vector< DTYPE >& x, const std::vector< DTYPE >& b, std::vector< DTYPE >* y = nullptr ) const;
 	/// Method used for QR decomposition of matrix (Householder)
@@ -622,6 +624,10 @@ private:
 	void sort_rows_ROWAMD();
 	/// columns aproximated minimal degree
 	void sort_cols_COLAMD();
+	/// rows scaling
+	void rows_scaling();
+	/// cols scaling
+	void cols_scaling();
 
 
 	//=============== FRIEND FUNCTIONS ===============
@@ -859,6 +865,7 @@ dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS, double mult1, d
 *  Main functionality of the dynamic_storage_scheme, decompusition perfomed by Gauss
 *  elimination algorithm.
 *
+*  @param scaling                      - [in] perform / do not perfom scaling
 *  @param strategy                     - [in] parameter discribing which strategy should be
 *                                        used to choise pivot
 *  @param search                       - [in] number of rows to be searched during pivot choosing
@@ -873,7 +880,7 @@ dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS, double mult1, d
 */
 //-------------------------------------------------------------------------------------------------
 template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::LU_decomposition( PIVOTAL_STRATEGY strategy, size_t _search, double _mult, double eps, LD_PREPARATION pre_sort )
+void dynamic_storage_scheme< TYPE >::LU_decomposition( bool scaling, PIVOTAL_STRATEGY strategy, size_t _search, double _mult, double eps, LD_PREPARATION pre_sort )
 {
 	if( dynamic_state != DYNAMIC_STATE::ROL_INIT )
 		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::LU_decomposition: ROL_INIT state is required\n" );
@@ -884,6 +891,11 @@ void dynamic_storage_scheme< TYPE >::LU_decomposition( PIVOTAL_STRATEGY strategy
 	const double mult{ _mult > 1 && strategy != PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION ? _mult : 1 };
 	const size_t search{ strategy == PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION || _search < 1 ? 1 : _search };
 	const int N = ( int )number_of_rows - 1;
+
+	if( scaling )
+		rows_scaling();
+	else
+		scalars.resize( number_of_rows, 1.0 );
 
 	if( pre_sort == LD_PREPARATION::SORT )
 		sort_rows();
@@ -1069,11 +1081,11 @@ void dynamic_storage_scheme< TYPE >::solve_LU( std::vector< DTYPE >& x, const st
 
 	// first solve the equation Ly = b
 	// ===============================
-	y->at( 0 ) = b[ HA[ 0 ][ 7 ] ];
+	y->at( 0 ) = ( b[ HA[ 0 ][ 7 ] ] * static_cast< DTYPE >( scalars[ HA[ 0 ][ 7 ] ] ) );
 	for( size_t row = 1; row < N; row++ )
 	{
 		const int orig_row = HA[ row ][ 7 ];
-		y->at( row ) = b[ orig_row ];
+		y->at( row ) = ( b[ orig_row ] * static_cast< DTYPE >( scalars[ orig_row ] ) );
 		TYPE sum = 0;
 		for( int idx = HA[ orig_row ][ 1 ]; idx < HA[ orig_row ][ 2 ]; idx++ )
 			sum += static_cast< DTYPE >( ALU[ idx ] ) * y->at( HA[ CNLU[ idx ] ][ 10 ] );
@@ -2464,6 +2476,38 @@ void dynamic_storage_scheme< TYPE >::sort_cols_COLAMD()
 		}
 
 		col_connections.erase( C );
+	}
+}
+
+//------------------------------------------------------------------------------------ rows_scaling
+/**
+*  Method performs rows scaling to improve numerical stability
+*  rows scaling is used for LU_decomposition
+*/
+//-------------------------------------------------------------------------------------------------
+template < typename TYPE >
+void dynamic_storage_scheme< TYPE >::rows_scaling()
+{
+	if( dynamic_state != DYNAMIC_STATE::ROL_INIT )
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::rows_scaling: ROL_INIT state is required" );
+
+	double max_scalar{ 0.0 };
+	scalars.resize( number_of_rows, 0.0 );
+
+	for( size_t row{ 0 }; row < number_of_rows; ++row )
+	{
+		for( int c_idx{ HA[ row ][ 1 ] }; c_idx <= HA[ row ][ 3 ]; ++c_idx )
+			scalars[ row ] += abs_val( ALU[ c_idx ] );
+
+		max_scalar = std::max( max_scalar, scalars[ row ] );
+	}
+
+	for( size_t row{ 0 }; row < number_of_rows; ++row )
+	{
+		scalars[ row ] = ( max_scalar / scalars[ row ] );
+
+		for( int c_idx{ HA[ row ][ 1 ] }; c_idx <= HA[ row ][ 3 ]; ++c_idx )
+			ALU[ c_idx ] *= static_cast< TYPE >( scalars[ row ] );
 	}
 }
 
