@@ -53,7 +53,7 @@ protected:
 		// permute order in input schemy as all algorithms should works independetly for order of adding
 		EXPECT_NO_THROW( permute_input_matrix_elements_test( &ISS ) );
 		// create dynamic scheme
-		EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< T > >( ISS, 2, 0.8, get_init_type() ) );
+		EXPECT_NO_THROW( DSS = make_unique< dynamic_storage_scheme< T > >( ISS, 2.5, 1.0, get_init_type() ) );
 		// just print sparsity pattern
 		EXPECT_NO_THROW( DSS->print_sparsity_pattern( s_pattern_file.c_str() ) );
 

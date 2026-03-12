@@ -642,8 +642,10 @@ private:
 *  The only one constructor which requires following parameters:
 *
 *  @param ISS              - [in] The input scheme under which creates a dynamic scheme
-*  @param mult1            - [in] sizeof(ROL) = mult1 * sizeof(ISS)
-*  @param mult2 = 0.7      - [in] sizeof(COL) = mult2 * sizeof(ROL)
+*  @param mult1            - [in] sizeof( lead dim list ) = mult1 * sizeof( ISS )
+*  @param mult2            - [in] sizeof( follow dim list ) = mult2 * sizeof( ISS )
+*  @param _dynamic_state   - [in] required init state ROL_INIT or COL_INIT 
+*                                 depending on what we want to do
 *
 *  @throw bad_alloc        - when scheme couldn't be allocate
 */
@@ -658,9 +660,12 @@ dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS, double mult1, d
 	dynamic_state( _dynamic_state )
 {
 	if( dynamic_state != DYNAMIC_STATE::ROL_INIT && dynamic_state != DYNAMIC_STATE::COL_INIT )
-		dynamic_state = DYNAMIC_STATE::ROL_INIT;
+		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::dynamic_storage_scheme - ROL_INIT or COL_INIT required as init" );
 
 	const size_t  NNZ = ISS.NNZ;
+
+	mult1 = std::max( mult1, 1.0 );
+	mult2 = std::max( mult2, 1.0 );
 
 	// Allocate additional tabs for check the content each row/col - pack in COL/ROL
 	// =============================================================================
@@ -672,7 +677,7 @@ dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS, double mult1, d
 	{
 		NROL = static_cast< size_t >( mult1 * NNZ );
 		if( NROL < NNZ ) NROL = NNZ;
-		NCOL = static_cast< size_t >( mult2 * NROL );
+		NCOL = static_cast< size_t >( mult2 * NNZ );
 		if( NCOL < NNZ ) NCOL = NNZ;
 	}
 	// set sizes of allocated memory for state COL_INIT
@@ -681,7 +686,7 @@ dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS, double mult1, d
 	{
 		NCOL = static_cast< size_t >( mult1 * NNZ );
 		if( NCOL < NNZ ) NCOL = NNZ;
-		NROL = static_cast< size_t >( mult2 * NCOL );
+		NROL = static_cast< size_t >( mult2 * NNZ );
 		if( NROL < NNZ ) NROL = NNZ;
 	}
 	NHA = std::max( number_of_rows, number_of_columns );
