@@ -29,7 +29,7 @@
 /*                                                                                               */
 /*************************************************************************************************/
 
-template < typename TYPE >
+template < typename T >
 class input_storage_scheme
 {
 public:
@@ -42,7 +42,7 @@ public:
 
 private:
 		/// array of ORIGinal values of the input matrix A
-	std::vector< TYPE > AORIG;
+	std::vector< T > AORIG;
 	/// array of ORIGinal row numbers of the input matrix A (indexed from 0)
 	std::vector< int > RNORIG;
 	/// array of ORIGinal column numbers of the input matrix A (indexed from 0)
@@ -59,7 +59,7 @@ public:
 	{
 	}
 	/// copy constructor
-	input_storage_scheme( input_storage_scheme< TYPE >& ISS );
+	input_storage_scheme( input_storage_scheme< T >& ISS );
 	/// constructor which requires sizes of matrix
 	input_storage_scheme( size_t _number_of_rows, size_t _number_of_columns )
 		:
@@ -71,36 +71,36 @@ public:
 	}
 
 	/// double type used in solving / refinement
-	using DTYPE = typename double_type< TYPE >::type;
+	using DT = typename double_type< T >::type;
 
 	/// method to adding elements
-	void add_element( TYPE value, size_t row, size_t col );
+	void add_element( T value, size_t row, size_t col );
 
 	/// method counts residual vector r_i = Ax_i - b
-	void count_rasidual_vector( const std::vector< DTYPE >& x, const std::vector< DTYPE >& b, std::vector< DTYPE >& r ) const;
+	void count_rasidual_vector( const std::vector< DT >& x, const std::vector< DT >& b, std::vector< DT >& r ) const;
 	/// assigned operator
-	input_storage_scheme< TYPE >& operator= ( input_storage_scheme< TYPE >& ISS );
+	input_storage_scheme< T >& operator= ( input_storage_scheme< T >& ISS );
 private:
 
 	/// Definition of basic out_stream operator
-	template < typename TYPE2 >
-	friend std::ostream& operator<< ( std::ostream& out, const input_storage_scheme< TYPE2 >& ISS );
+	template < typename T2 >
+	friend std::ostream& operator<< ( std::ostream& out, const input_storage_scheme< T2 >& ISS );
 	/// Method uploading matrix from the file
-	template < typename TYPE2 >
-	friend void load_matrix_from_file( const char* file_name, input_storage_scheme< TYPE2 >* ISS );
+	template < typename T2 >
+	friend void load_matrix_from_file( const char* file_name, input_storage_scheme< T2 >* ISS );
 	/// Method uploading scheme from the file
-	template < typename TYPE2 >
-	friend void load_scheme_from_file( const char* file_name, input_storage_scheme< TYPE2 >* ISS );
+	template < typename T2 >
+	friend void load_scheme_from_file( const char* file_name, input_storage_scheme< T2 >* ISS );
 	/// Friend class basing on input_storage_scheme
-	template < typename TYPE2 >
+	template < typename T2 >
 	friend class dynamic_storage_scheme;
 
 	/// External test functions
-	template < typename TYPE >
-	friend void permute_input_matrix_elements_test( input_storage_scheme< TYPE >* ISS );
+	template < typename T >
+	friend void permute_input_matrix_elements_test( input_storage_scheme< T >* ISS );
 	/// 
-	template < typename TYPE >
-	friend void CheckAxb( const input_storage_scheme< TYPE >& ISS, const std::vector< TYPE >& x, std::vector< TYPE >& b );
+	template < typename T >
+	friend void CheckAxb( const input_storage_scheme< T >& ISS, const std::vector< T >& x, std::vector< T >& b );
 };
 //---------------------------------------------------------------------------- input_storage_scheme
 /**
@@ -110,8 +110,8 @@ private:
 *
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-input_storage_scheme< TYPE >::input_storage_scheme( input_storage_scheme< TYPE >& ISS )
+template < typename T >
+input_storage_scheme< T >::input_storage_scheme( input_storage_scheme< T >& ISS )
 	:
 	number_of_rows( ISS.number_of_rows ),
 	number_of_columns( ISS.number_of_columns ),
@@ -133,11 +133,11 @@ input_storage_scheme< TYPE >::input_storage_scheme( input_storage_scheme< TYPE >
 *  @throw out_of_range
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void input_storage_scheme< TYPE >::add_element( TYPE value, size_t row, size_t col )
+template < typename T >
+void input_storage_scheme< T >::add_element( T value, size_t row, size_t col )
 {
 	if( row >= number_of_rows || col >= number_of_columns )
-		throw std::out_of_range( "input_storage_scheme< TYPE >::add_element: wrong row/col number" );
+		throw std::out_of_range( "input_storage_scheme< T >::add_element: wrong row/col number" );
 
 	AORIG.push_back( value );
 	RNORIG.push_back( row );
@@ -154,13 +154,13 @@ void input_storage_scheme< TYPE >::add_element( TYPE value, size_t row, size_t c
 *  @param r                - [out] counting residual vestor
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void input_storage_scheme< TYPE >::count_rasidual_vector( const std::vector< DTYPE >& x, const std::vector< DTYPE >& b, std::vector< DTYPE >& r ) const
+template < typename T >
+void input_storage_scheme< T >::count_rasidual_vector( const std::vector< DT >& x, const std::vector< DT >& b, std::vector< DT >& r ) const
 {
 	for( size_t row = 0; row < number_of_rows; ++row )
 		r[ row ] = -b[ row ];
 	for( size_t idx = 0; idx < NNZ; ++idx )
-		r[ RNORIG[ idx ] ] += ( x[ CNORIG[ idx ] ] * static_cast< DTYPE >( AORIG[ idx ] ) );
+		r[ RNORIG[ idx ] ] += ( x[ CNORIG[ idx ] ] * static_cast< DT >( AORIG[ idx ] ) );
 }
 
 //--------------------------------------------------------------------------- operator=
@@ -170,8 +170,8 @@ void input_storage_scheme< TYPE >::count_rasidual_vector( const std::vector< DTY
 *  @param ISS                - [in] the assigned input scheme
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-input_storage_scheme< TYPE >& input_storage_scheme< TYPE >:: operator= ( input_storage_scheme< TYPE >& ISS )
+template < typename T >
+input_storage_scheme< T >& input_storage_scheme< T >:: operator= ( input_storage_scheme< T >& ISS )
 {
 	const_cast< size_t& >( number_of_rows ) = ISS.number_of_rows;
 	const_cast< size_t& >( number_of_columns ) = ISS.number_of_columns;
@@ -190,8 +190,8 @@ input_storage_scheme< TYPE >& input_storage_scheme< TYPE >:: operator= ( input_s
 *  @param ISS                           -[in] input storage scheme
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-std::ostream& operator<< ( std::ostream& out, const input_storage_scheme< TYPE >& ISS )
+template < typename T >
+std::ostream& operator<< ( std::ostream& out, const input_storage_scheme< T >& ISS )
 {
 	const int manip_typ = 6;
 	const int manip_int = 3;
@@ -228,11 +228,11 @@ std::ostream& operator<< ( std::ostream& out, const input_storage_scheme< TYPE >
 */
 //-------------------------------------------------------------------------------------------------
 /// Declaration
-template < typename TYPE >
-void load_matrix_from_file( const char* file_name, input_storage_scheme< TYPE >* ISS );
+template < typename T >
+void load_matrix_from_file( const char* file_name, input_storage_scheme< T >* ISS );
 /// template for specjalization in loading elements of specified type
-template < typename TYPE >
-void load_matrix_from_file( const char* file_name, input_storage_scheme< TYPE >* ISS )
+template < typename T >
+void load_matrix_from_file( const char* file_name, input_storage_scheme< T >* ISS )
 {
 	std::ifstream input_file;
 	char buffer[ 128 ];
@@ -327,22 +327,22 @@ void load_matrix_from_file( const char* file_name, input_storage_scheme< double 
 *   _______________
 *  |5              |  <-  number of rows of loading matrix
 *  |5              |  <-  number of columns of loading matrix
-*  |1  0  0        |  <-  TYPE    row     col
-*  |5  1  2        |  <-  TYPE    row     col
-*  |3  1  0        |  <-  TYPE    row     col
-*  |2  2  0        |  <-  TYPE    row     col
-*  |5  3  1        |  <-  TYPE    row     col
+*  |1  0  0        |  <-  T    row     col
+*  |5  1  2        |  <-  T    row     col
+*  |3  1  0        |  <-  T    row     col
+*  |2  2  0        |  <-  T    row     col
+*  |5  3  1        |  <-  T    row     col
 *  |_______________|
 *
 *  @throw exception     - if specified file not found
 */
 //-------------------------------------------------------------------------------------------------
 /// Declaration
-template < typename TYPE >
-void load_scheme_from_file( const char* file_name, input_storage_scheme< TYPE >* ISS );
+template < typename T >
+void load_scheme_from_file( const char* file_name, input_storage_scheme< T >* ISS );
 /// Declaration
-template < typename TYPE >
-void load_scheme_from_file( const char* file_name, input_storage_scheme< TYPE >* ISS )
+template < typename T >
+void load_scheme_from_file( const char* file_name, input_storage_scheme< T >* ISS )
 {
 	std::ifstream input_file;
 	char buffer[ 128 ];
@@ -391,8 +391,8 @@ void load_scheme_from_file( const char* file_name, input_storage_scheme< TYPE >*
 *  @param ISS -      input storage scheme to be tested
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void permute_input_matrix_elements_test( input_storage_scheme<TYPE >* ISS )
+template < typename T >
+void permute_input_matrix_elements_test( input_storage_scheme<T >* ISS )
 {
 	srand( ( size_t )time( NULL ) );
 	const size_t N = ISS->NNZ;
@@ -417,8 +417,8 @@ void permute_input_matrix_elements_test( input_storage_scheme<TYPE >* ISS )
 *  @param b -        [out] result
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void CheckAxb( const input_storage_scheme< TYPE >& ISS, const std::vector< TYPE >& x, std::vector< TYPE >& b )
+template < typename T >
+void CheckAxb( const input_storage_scheme< T >& ISS, const std::vector< T >& x, std::vector< T >& b )
 {
 	for( size_t i = 0; i < ISS.number_of_rows; ++i )
 		b[ i ] = 0;
@@ -479,7 +479,7 @@ enum MARKER
 /*                                   DYNAMIC STORAGE SCHEME                                      */
 /*                                                                                               */
 /*************************************************************************************************/
-template < typename TYPE >
+template < typename T >
 class dynamic_storage_scheme
 {
 private:
@@ -490,7 +490,7 @@ private:
 	const size_t order;
 
 	/// array of values of the elements stored in scheme (indexed from 0)
-	std::vector< TYPE > A;
+	std::vector< T > A;
 
 	//============== Row-Ordered List (ROL) =============
 	size_t NROL{ 0 };			/// size of row-ordered list (not number of stored elements)
@@ -506,8 +506,8 @@ private:
 
 	//============== INTEGRITY ARRAYS =============
 	size_t NHA{ 0 };			/// size of integrity arrays
-	std::vector< TYPE > VFIRST; /// first non zero elemnt in v - reflector 
-	std::vector< TYPE > PIVOT;	/// table of pivots for LU decomposition 
+	std::vector< T > VFIRST; /// first non zero elemnt in v - reflector 
+	std::vector< T > PIVOT;	/// table of pivots for LU decomposition 
 								/// BETAS: 2/vTv in QR decomposition 
 								/// ITARATIVE (SOR) state also uses it
 
@@ -541,31 +541,31 @@ private:
 public:
 	/// Constructor - input_storage_scheme require and two floats that determine sizes of storage lists
 	///               in flollowing way: NROL = mult1 * ISS->NNZ, NCOL = mult2 * NROL
-	dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS, double mult1, double mult2 = 0.7, DYNAMIC_STATE _dynamic_state = DYNAMIC_STATE::ROL_INIT );
+	dynamic_storage_scheme( const input_storage_scheme< T >& ISS, double mult1, double mult2 = 0.7, DYNAMIC_STATE _dynamic_state = DYNAMIC_STATE::ROL_INIT );
 	/// Destructor
 	~dynamic_storage_scheme() = default;
 
 	/// double type used in solving / refinement
-	using DTYPE = typename double_type< TYPE >::type;
+	using DT = typename double_type< T >::type;
 
 	/// Method to dump the contents of the schema
 	void print_scheme_to_file( const char* file_name );
 	/// Method used for LU decomposition of matrix (Gauss elimination)
 	void LU_decomposition( bool scaling, PIVOTAL_STRATEGY strategy, size_t _search, double _mult, double eps, LD_PREPARATION pre_sort = LD_PREPARATION::NONE );
 	/// Method solves LU problem (LU_decomposition is needed to call before)
-	void solve_LU( std::vector< DTYPE >& x, const std::vector< DTYPE >& b, std::vector< DTYPE >* y = nullptr ) const;
+	void solve_LU( std::vector< DT >& x, const std::vector< DT >& b, std::vector< DT >* y = nullptr ) const;
 	/// Method used for QR decomposition of matrix (Householder)
 	void QR_decomposition( bool scaling, LD_PREPARATION pre_sort = LD_PREPARATION::SORT );
 	/// Method solves LU problem (LU_decomposition is needed to call before)
-	void solve_QR( std::vector< DTYPE >& x, const std::vector< DTYPE >& b, std::vector< DTYPE >* y = nullptr ) const;
+	void solve_QR( std::vector< DT >& x, const std::vector< DT >& b, std::vector< DT >* y = nullptr ) const;
 	/// Method improves the accuracy of the solution
-	void iterative_refinement( const input_storage_scheme< TYPE >& ISS, std::vector< DTYPE >& x, const std::vector< DTYPE >& b, const double acc, const size_t max_it ) const;
+	void iterative_refinement( const input_storage_scheme< T >& ISS, std::vector< DT >& x, const std::vector< DT >& b, const double acc, const size_t max_it ) const;
 	/// Method prepares matrix to SOR iterations
 	void iterative_preparation( void );
 	/// Method sets relaxation parameter omega
 	void set_relaxation_parameter( double _relaxation_parameter );
 	/// Method performs one iteration of SOR method
-	void SOR_iteration( std::vector< DTYPE >& x, const std::vector< DTYPE >& b, std::vector< DTYPE >& prev_x ) const;
+	void SOR_iteration( std::vector< DT >& x, const std::vector< DT >& b, std::vector< DT >& prev_x ) const;
 
 	/// ==================== FUNCTIONS WRITTEN ONLY FOR TESTS ====================
 	/// returns amount of non zeros elements
@@ -585,11 +585,11 @@ private:
 	/// Function permuts column lying on pos1 position with column lying on pos2 position
 	void permute_cols( size_t pos1, size_t pos2 );
 	/// Function use to storing fillins in row ordered list, params row and col are current position in matrix
-	STORING_STATUS store_fillin_ROL( TYPE val, int orig_row, int orig_col, bool garbage_on, size_t* store_index = nullptr );
+	STORING_STATUS store_fillin_ROL( T val, int orig_row, int orig_col, bool garbage_on, size_t* store_index = nullptr );
 	/// Function performs the organize of the elements in a compact structure in ROL
 	void garbage_collection_in_ROL( void );
 	/// Function use to storing fillins in column ordered list, params row and col are current position in matrix
-	STORING_STATUS store_fillin_COL( TYPE val, int orig_row, int orig_col, bool garbage_o, size_t* store_index = nullptr );
+	STORING_STATUS store_fillin_COL( T val, int orig_row, int orig_col, bool garbage_o, size_t* store_index = nullptr );
 	/// Function performs the organize of the elements in a compact structure in COL
 	void garbage_collection_in_COL( void );
 	/// Method brings the choosen element on choosen row to begin of active part of it and incress active begine pointer (so element is inactive)
@@ -626,8 +626,8 @@ private:
 
 	//=============== FRIEND FUNCTIONS ===============
 	/// Definition of basic out_stream operator
-	template < typename TYPE2 >
-	friend std::ostream& operator<<( std::ostream& out, const dynamic_storage_scheme< TYPE2 >& DSS );
+	template < typename T2 >
+	friend std::ostream& operator<<( std::ostream& out, const dynamic_storage_scheme< T2 >& DSS );
 };
 
 
@@ -644,9 +644,9 @@ private:
 *  @throw bad_alloc        - when scheme couldn't be allocate
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-dynamic_storage_scheme< TYPE >::
-dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS, double mult1, double mult2, DYNAMIC_STATE _dynamic_state )
+template < typename T >
+dynamic_storage_scheme< T >::
+dynamic_storage_scheme( const input_storage_scheme< T >& ISS, double mult1, double mult2, DYNAMIC_STATE _dynamic_state )
 	:
 	number_of_rows( ISS.number_of_rows ),
 	number_of_columns( ISS.number_of_columns ),
@@ -654,7 +654,7 @@ dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS, double mult1, d
 	dynamic_state( _dynamic_state )
 {
 	if( dynamic_state != DYNAMIC_STATE::ROL_INIT && dynamic_state != DYNAMIC_STATE::COL_INIT )
-		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::dynamic_storage_scheme - ROL_INIT or COL_INIT required as init" );
+		throw std::invalid_argument( "dynamic_storage_scheme< T >::dynamic_storage_scheme - ROL_INIT or COL_INIT required as init" );
 
 	const size_t  NNZ = ISS.NNZ;
 
@@ -878,14 +878,14 @@ dynamic_storage_scheme( const input_storage_scheme< TYPE >& ISS, double mult1, d
 *                                        enough memory in ROL/COL
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::LU_decomposition( bool scaling, PIVOTAL_STRATEGY strategy, size_t _search, double _mult, double eps, LD_PREPARATION pre_sort )
+template < typename T >
+void dynamic_storage_scheme< T >::LU_decomposition( bool scaling, PIVOTAL_STRATEGY strategy, size_t _search, double _mult, double eps, LD_PREPARATION pre_sort )
 {
 	if( dynamic_state != DYNAMIC_STATE::ROL_INIT )
-		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::LU_decomposition: ROL_INIT state is required\n" );
+		throw std::invalid_argument( "dynamic_storage_scheme< T >::LU_decomposition: ROL_INIT state is required\n" );
 
 	if( number_of_columns != number_of_rows )
-		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::LU_decomposition: matrix is not squared" );
+		throw std::invalid_argument( "dynamic_storage_scheme< T >::LU_decomposition: matrix is not squared" );
 
 	const double mult{ _mult > 1 && strategy != PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION ? _mult : 1 };
 	const size_t search{ strategy == PIVOTAL_STRATEGY::FILLIN_MINIMALIZATION || _search < 1 ? 1 : _search };
@@ -917,7 +917,7 @@ void dynamic_storage_scheme< TYPE >::LU_decomposition( bool scaling, PIVOTAL_STR
 			break;
 		}
 		if( std::abs( PIVOT[ stage ] ) < eps )
-			throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::LU_decomposition: obtained singular matrix" );
+			throw std::invalid_argument( "dynamic_storage_scheme< T >::LU_decomposition: obtained singular matrix" );
 
 		const int eliminating_row = HA[ stage ][ 7 ];
 
@@ -940,7 +940,7 @@ void dynamic_storage_scheme< TYPE >::LU_decomposition( bool scaling, PIVOTAL_STR
 
 				// first find element in eliminated row which has the same column number as pivot and count eliminator
 				// ===================================================================================================
-				TYPE eliminator{ 1 };
+				T eliminator{ 1 };
 				for( int idx = HA[ eliminated_row ][ 2 ]; idx <= HA[ eliminated_row ][ 3 ]; ++idx )
 					if( CN[ idx ] == HA[ stage ][ 9 ] )
 					{
@@ -982,13 +982,13 @@ void dynamic_storage_scheme< TYPE >::LU_decomposition( bool scaling, PIVOTAL_STR
 				for( int idx = HA[ eliminating_row ][ 2 ]; idx <= erow_end; ++idx )
 				{
 					const size_t col_number = CN[ idx ];
-					TYPE fillin = -eliminator * PIVOT[ HA[ col_number ][ 10 ] ];
+					T fillin = -eliminator * PIVOT[ HA[ col_number ][ 10 ] ];
 					if( std::abs( fillin ) > eps )
 					{
 						if( store_fillin_ROL( fillin, eliminated_row, col_number, true, nullptr ) == STORING_STATUS::STORING_FAIL )
-							throw std::runtime_error( "dynamic_storage_scheme< TYPE >::LU_decomposition: not enough memory in ROL" );
+							throw std::runtime_error( "dynamic_storage_scheme< T >::LU_decomposition: not enough memory in ROL" );
 						if( store_fillin_COL( fillin, eliminated_row, col_number, true, nullptr ) == STORING_STATUS::STORING_FAIL )
-							throw std::runtime_error( "dynamic_storage_scheme< TYPE >::LU_decomposition: not enough memory in COL" );
+							throw std::runtime_error( "dynamic_storage_scheme< T >::LU_decomposition: not enough memory in COL" );
 						PIVOT[ HA[ col_number ][ 10 ] ] = 0;
 
 						// garbage collection may change coords of eliminating row
@@ -1038,7 +1038,7 @@ void dynamic_storage_scheme< TYPE >::LU_decomposition( bool scaling, PIVOTAL_STR
 	// if last pivot is 0, it meens that matrix became singular
 	// ========================================================
 	if( std::abs( PIVOT[ N ] ) == 0 )
-		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::LU_decomposition: obtained singular matrix" );
+		throw std::invalid_argument( "dynamic_storage_scheme< T >::LU_decomposition: obtained singular matrix" );
 
 	dynamic_state = DYNAMIC_STATE::LU_DECOMPOSED;
 }
@@ -1049,8 +1049,8 @@ void dynamic_storage_scheme< TYPE >::LU_decomposition( bool scaling, PIVOTAL_STR
 *  triangular matrices obtained by LU_decomposition method from input matrix,
 *  so there is a need to call this method before
 *
-*  @param x                     - [out] searching solution (\in TYPE^number_of_columns)
-*  @param b                     - [in] right sight vector of solving equation (\in TYPE^number_of_rows)
+*  @param x                     - [out] searching solution (\in T^number_of_columns)
+*  @param b                     - [in] right sight vector of solving equation (\in T^number_of_rows)
 *  @param y  - (default = NULL) - [in] optional helpfull vector used to counting solution in two stages
 *                                 Ly = b and Ux = y, allocation and transmision of this parameter
 *                                 is recommended for large arrays, if y is not transmitted then
@@ -1060,17 +1060,17 @@ void dynamic_storage_scheme< TYPE >::LU_decomposition( bool scaling, PIVOTAL_STR
 *                                 or wrong dynamic state
 */
 //------------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::solve_LU( std::vector< DTYPE >& x, const std::vector< DTYPE >& b, std::vector< DTYPE >* y ) const
+template < typename T >
+void dynamic_storage_scheme< T >::solve_LU( std::vector< DT >& x, const std::vector< DT >& b, std::vector< DT >* y ) const
 {
 	if( dynamic_state != DYNAMIC_STATE::LU_DECOMPOSED )
-		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::solve_LU: LU_decomposition is needed before" );
+		throw std::invalid_argument( "dynamic_storage_scheme< T >::solve_LU: LU_decomposition is needed before" );
 	if( number_of_columns != number_of_rows )
-		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::solve_LU: LU_decomposition is needed before" );
-	( "dynamic_storage_scheme< TYPE >::solve_LU: matrix is not squared" );
+		throw std::invalid_argument( "dynamic_storage_scheme< T >::solve_LU: LU_decomposition is needed before" );
+	( "dynamic_storage_scheme< T >::solve_LU: matrix is not squared" );
 
 	const size_t N = number_of_columns;
-	std::vector< DTYPE > y_alloc;
+	std::vector< DT > y_alloc;
 
 	if( y == NULL )
 	{
@@ -1080,26 +1080,26 @@ void dynamic_storage_scheme< TYPE >::solve_LU( std::vector< DTYPE >& x, const st
 
 	// first solve the equation Ly = b
 	// ===============================
-	y->at( 0 ) = ( b[ HA[ 0 ][ 7 ] ] * static_cast< DTYPE >( scalars[ HA[ 0 ][ 7 ] ] ) );
+	y->at( 0 ) = ( b[ HA[ 0 ][ 7 ] ] * static_cast< DT >( scalars[ HA[ 0 ][ 7 ] ] ) );
 	for( size_t row = 1; row < N; row++ )
 	{
 		const int orig_row = HA[ row ][ 7 ];
-		y->at( row ) = ( b[ orig_row ] * static_cast< DTYPE >( scalars[ orig_row ] ) );
-		TYPE sum = 0;
+		y->at( row ) = ( b[ orig_row ] * static_cast< DT >( scalars[ orig_row ] ) );
+		T sum = 0;
 		for( int idx = HA[ orig_row ][ 1 ]; idx < HA[ orig_row ][ 2 ]; idx++ )
-			sum += static_cast< DTYPE >( A[ idx ] ) * y->at( HA[ CN[ idx ] ][ 10 ] );
+			sum += static_cast< DT >( A[ idx ] ) * y->at( HA[ CN[ idx ] ][ 10 ] );
 		y->at( row ) -= sum;
 	}
 	// second solve the equation Ux = y
 	// ================================
-	x[ HA[ N - 1 ][ 9 ] ] = y->at( N - 1 ) / static_cast< DTYPE >( PIVOT[ N - 1 ] );
+	x[ HA[ N - 1 ][ 9 ] ] = y->at( N - 1 ) / static_cast< DT >( PIVOT[ N - 1 ] );
 	for( int row = N - 2; row >= 0; row-- )
 	{
 		const int col = HA[ row ][ 9 ];
 		const int orig_row = HA[ row ][ 7 ];
 		x[ col ] = y->at( row );
 		for( int idx = HA[ orig_row ][ 2 ]; idx <= HA[ orig_row ][ 3 ]; idx++ )
-			x[ col ] -= static_cast< DTYPE >( A[ idx ] ) * x[ CN[ idx ] ];
+			x[ col ] -= static_cast< DT >( A[ idx ] ) * x[ CN[ idx ] ];
 		x[ col ] /= PIVOT[ row ];
 	}
 }
@@ -1116,20 +1116,20 @@ void dynamic_storage_scheme< TYPE >::solve_LU( std::vector< DTYPE >& x, const st
 *                                        enough memory in ROL/COL
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::QR_decomposition( bool scaling, LD_PREPARATION pre_sort )
+template < typename T >
+void dynamic_storage_scheme< T >::QR_decomposition( bool scaling, LD_PREPARATION pre_sort )
 {
 	if( dynamic_state != DYNAMIC_STATE::COL_INIT )
-		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::QR_decomposition: COL_INIT state is required\n" );
+		throw std::invalid_argument( "dynamic_storage_scheme< T >::QR_decomposition: COL_INIT state is required\n" );
 
 	if( number_of_columns != number_of_rows )
-		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::QR_decomposition: matrix is not squared" );
+		throw std::invalid_argument( "dynamic_storage_scheme< T >::QR_decomposition: matrix is not squared" );
 
-	using real_t = real_type< TYPE >::type;
-	using pfillin = std::pair< TYPE, int >;
+	using RT = real_type< T >::type;
+	using pfillin = std::pair< T, int >;
 
 	VFIRST.resize( NHA );
-	std::vector< TYPE > vTA( number_of_columns );
+	std::vector< T > vTA( number_of_columns );
 	std::vector< int > mod_col( number_of_rows );
 
 	const int N = ( int )number_of_rows - 1;
@@ -1151,7 +1151,7 @@ void dynamic_storage_scheme< TYPE >::QR_decomposition( bool scaling, LD_PREPARAT
 		const int s_orig_col = HA[ stage ][ 9 ];
 		int srow_idx{ FREE };
 
-		memset( VFIRST.data() + stage, 0, ( VFIRST.size() - stage ) * sizeof( TYPE ) );
+		memset( VFIRST.data() + stage, 0, ( VFIRST.size() - stage ) * sizeof( T ) );
 
 		double col_norm{ 0.0 };
 		for( int r_idx{ HA[ s_orig_col ][ 5 ] }; r_idx <= HA[ s_orig_col ][ 6 ]; ++r_idx )
@@ -1165,9 +1165,9 @@ void dynamic_storage_scheme< TYPE >::QR_decomposition( bool scaling, LD_PREPARAT
 		}
 		col_norm = std::sqrt( col_norm );
 
-		TYPE a_ss = ( srow_idx == FREE ? TYPE{ 0.0 } : A[ srow_idx ] );
-		TYPE sign = ( a_ss != TYPE{ 0.0 } ? -a_ss / TYPE{ static_cast< real_t >( abs_val( a_ss ) ) } : TYPE{ -1 } );
-		TYPE sign_norm = sign * TYPE{ static_cast< real_t >( col_norm ) };
+		T a_ss = ( srow_idx == FREE ? T{ 0.0 } : A[ srow_idx ] );
+		T sign = ( a_ss != T{ 0.0 } ? -a_ss / T{ static_cast< RT >( abs_val( a_ss ) ) } : T{ -1 } );
+		T sign_norm = sign * T{ static_cast< RT >( col_norm ) };
 
 		VFIRST[ stage ] = a_ss - sign_norm;
 
@@ -1175,7 +1175,7 @@ void dynamic_storage_scheme< TYPE >::QR_decomposition( bool scaling, LD_PREPARAT
 		{
 			size_t fillin_idx{ 0 };
 			if( store_fillin_COL( sign_norm, stage, s_orig_col, true, &fillin_idx ) == STORING_STATUS::STORING_FAIL )
-				throw std::runtime_error( "dynamic_storage_scheme< TYPE >::QR_decomposition: not enough memory in COL" );
+				throw std::runtime_error( "dynamic_storage_scheme< T >::QR_decomposition: not enough memory in COL" );
 			deactivate_element_in_COL( fillin_idx, s_orig_col );
 		}
 		else
@@ -1184,19 +1184,19 @@ void dynamic_storage_scheme< TYPE >::QR_decomposition( bool scaling, LD_PREPARAT
 			deactivate_element_in_COL( srow_idx, s_orig_col );
 		}
 
-		TYPE vTv{ conjugate( VFIRST[ stage ] ) * VFIRST[ stage ] };
+		T vTv{ conjugate( VFIRST[ stage ] ) * VFIRST[ stage ] };
 		for( int r_idx{ HA[ s_orig_col ][ 5 ] }; r_idx <= HA[ s_orig_col ][ 6 ]; ++r_idx )
 			vTv += conjugate( A[ r_idx ] ) * A[ r_idx ];
 
 		// under PIVOT table Householders betas are stored
 		// ===============================================
-		PIVOT[ stage ] = static_cast< real_t >( 2.0 ) / vTv;
+		PIVOT[ stage ] = static_cast< RT >( 2.0 ) / vTv;
 
 		// calculate vTA ( v*A in case of complex )
 		// ========================================
 		for( int c{ stage + 1 }; c < number_of_columns; ++c )
 		{
-			vTA[ c ] = TYPE{};
+			vTA[ c ] = T{};
 			const int c_orig_col = HA[ c ][ 9 ];
 			for( int r_idx{ HA[ c_orig_col ][ 5 ] }; r_idx <= HA[ c_orig_col ][ 6 ]; ++r_idx )
 				vTA[ c ] += conjugate( VFIRST[ RN[ r_idx ] ] ) * A[ r_idx ];
@@ -1214,7 +1214,7 @@ void dynamic_storage_scheme< TYPE >::QR_decomposition( bool scaling, LD_PREPARAT
 			for( int r_idx{ HA[ c_orig_col ][ 4 ] }; r_idx <= HA[ c_orig_col ][ 6 ]; ++r_idx )
 				mod_col[ RN[ r_idx ] ] = r_idx;
 
-			TYPE bvvTA{ PIVOT[ stage ] * VFIRST[ stage ] * vTA[ c ] };
+			T bvvTA{ PIVOT[ stage ] * VFIRST[ stage ] * vTA[ c ] };
 
 			std::vector< pfillin > fillins;
 
@@ -1237,7 +1237,7 @@ void dynamic_storage_scheme< TYPE >::QR_decomposition( bool scaling, LD_PREPARAT
 
 			for( const auto& [ fillinVal, fillinRow ] : fillins )
 				if( store_fillin_COL( fillinVal, fillinRow, c_orig_col, true ) == STORING_STATUS::STORING_FAIL )
-					throw std::runtime_error( "dynamic_storage_scheme< TYPE >::QR_decomposition: not enough memory in COL" );
+					throw std::runtime_error( "dynamic_storage_scheme< T >::QR_decomposition: not enough memory in COL" );
 
 			for( int s_idx{ HA[ c_orig_col ][ 5 ] }; s_idx <= HA[ c_orig_col ][ 6 ]; ++s_idx )
 				if( RN[ s_idx ] == stage )
@@ -1260,8 +1260,8 @@ void dynamic_storage_scheme< TYPE >::QR_decomposition( bool scaling, LD_PREPARAT
 /**
 *  Function solves equation QRx = b, where Q is ortogonal / unitar and R is upper triangular matrix
 *
-*  @param x                     - [out] searching solution (\in TYPE^number_of_columns)
-*  @param b                     - [in] right sight vector of solving equation (\in TYPE^number_of_rows)
+*  @param x                     - [out] searching solution (\in T^number_of_columns)
+*  @param b                     - [in] right sight vector of solving equation (\in T^number_of_rows)
 *  @param y  - (default = NULL) - [in] optional helpfull vector used to counting solution in two stages
 *                                 Ly = b and Ux = y, allocation and transmision of this parameter
 *                                 is recommended for large arrays, if y is not transmitted then
@@ -1271,19 +1271,19 @@ void dynamic_storage_scheme< TYPE >::QR_decomposition( bool scaling, LD_PREPARAT
 *                                 or wrong dynamic state
 */
 //------------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::solve_QR( std::vector< DTYPE >& x, const std::vector< DTYPE >& b, std::vector< DTYPE >* y ) const
+template < typename T >
+void dynamic_storage_scheme< T >::solve_QR( std::vector< DT >& x, const std::vector< DT >& b, std::vector< DT >* y ) const
 {
 	if( dynamic_state != DYNAMIC_STATE::QR_DECOMPOSED )
-		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::solve_QR: QR_decomposition is needed before" );
+		throw std::invalid_argument( "dynamic_storage_scheme< T >::solve_QR: QR_decomposition is needed before" );
 	if( number_of_columns != number_of_rows )
-		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::solve_QR: matrix is not squared" );
+		throw std::invalid_argument( "dynamic_storage_scheme< T >::solve_QR: matrix is not squared" );
 	if( b.size() != number_of_rows )
-		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::solve_QR: b.size() != number_of_rows" );
+		throw std::invalid_argument( "dynamic_storage_scheme< T >::solve_QR: b.size() != number_of_rows" );
 
 	const auto N = std::min( number_of_rows - 1, number_of_columns );
 
-	std::vector< DTYPE > y_alloc;
+	std::vector< DT > y_alloc;
 
 	if( y == NULL )
 		y = &y_alloc;
@@ -1295,13 +1295,13 @@ void dynamic_storage_scheme< TYPE >::solve_QR( std::vector< DTYPE >& x, const st
 	{
 		const int s_orig_col = HA[ step ][ 9 ];
 
-		DTYPE vTb{ conjugate( static_cast< DTYPE >( VFIRST[ step ] ) ) * y->at( step ) };
+		DT vTb{ conjugate( static_cast< DT >( VFIRST[ step ] ) ) * y->at( step ) };
 		for( int r_idx{ HA[ s_orig_col ][ 5 ] }; r_idx <= HA[ s_orig_col ][ 6 ]; ++r_idx )
-			vTb += conjugate( static_cast< DTYPE >( A[ r_idx ] ) ) * y->at( RN[ r_idx ] );
+			vTb += conjugate( static_cast< DT >( A[ r_idx ] ) ) * y->at( RN[ r_idx ] );
 
-		y->at( step ) -= static_cast< DTYPE >( PIVOT[ step ] ) * static_cast< DTYPE >( VFIRST[ step ] ) * vTb;
+		y->at( step ) -= static_cast< DT >( PIVOT[ step ] ) * static_cast< DT >( VFIRST[ step ] ) * vTb;
 		for( int r_idx{ HA[ s_orig_col ][ 5 ] }; r_idx <= HA[ s_orig_col ][ 6 ]; ++r_idx )
-			y->at( RN[ r_idx ] ) -= static_cast< DTYPE >( PIVOT[ step ] ) * static_cast< DTYPE >( A[ r_idx ] ) * vTb;
+			y->at( RN[ r_idx ] ) -= static_cast< DT >( PIVOT[ step ] ) * static_cast< DT >( A[ r_idx ] ) * vTb;
 	}
 
 	// then solve Rx = Q^T * b by back substitution
@@ -1314,7 +1314,7 @@ void dynamic_storage_scheme< TYPE >::solve_QR( std::vector< DTYPE >& x, const st
 		y->at( c ) /= A[ r_idx-- ];
 		while( r_idx >= HA[ s_orig_col ][ 4 ] )
 		{
-			y->at( RN[ r_idx ] ) -= static_cast< DTYPE >( A[ r_idx ] ) * y->at( c );
+			y->at( RN[ r_idx ] ) -= static_cast< DT >( A[ r_idx ] ) * y->at( c );
 			--r_idx;
 		}
 
@@ -1322,7 +1322,7 @@ void dynamic_storage_scheme< TYPE >::solve_QR( std::vector< DTYPE >& x, const st
 	}
 
 	for( size_t c{ 0 }; c < number_of_columns; ++c )
-		x[ c ] *= static_cast< DTYPE >( scalars[ c ] );
+		x[ c ] *= static_cast< DT >( scalars[ c ] );
 }
 
 //------------------------------------------------------------------------------------------------ iterative_refinement
@@ -1331,25 +1331,25 @@ void dynamic_storage_scheme< TYPE >::solve_QR( std::vector< DTYPE >& x, const st
 *
 *  @param ISS                  - [in] the input scheme under which the dynamic scheme has been created
 *                                for the benefit of which the method is called
-*  @param x                    - [in/out] searching solution (\in TYPE^number_of_columns)
-*  @param b                    - [in] right sight vector of solving equation (\in TYPE^number_of_rows)
+*  @param x                    - [in/out] searching solution (\in T^number_of_columns)
+*  @param b                    - [in] right sight vector of solving equation (\in T^number_of_rows)
 *  @param acc                  - [in] required accuracy (will not always be achieved)
 *  @param max_it               - [in] maximum number of allowed iterations
 *
 *  @throw exception            - when matrix is not squared
 */
 //---------------------------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::iterative_refinement( const input_storage_scheme< TYPE >& ISS, std::vector< DTYPE >& x, const std::vector< DTYPE >& b, const double acc, const size_t max_it ) const
+template < typename T >
+void dynamic_storage_scheme< T >::iterative_refinement( const input_storage_scheme< T >& ISS, std::vector< DT >& x, const std::vector< DT >& b, const double acc, const size_t max_it ) const
 {
 	if( number_of_columns != number_of_rows )
-		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::iterative_refinement: matrix is not squared" );
+		throw std::invalid_argument( "dynamic_storage_scheme< T >::iterative_refinement: matrix is not squared" );
 
 	const size_t N = number_of_columns;
 
-	std::vector< DTYPE > d( N );
-	std::vector< DTYPE > r( N );
-	std::vector< DTYPE > y( N );
+	std::vector< DT > d( N );
+	std::vector< DT > r( N );
+	std::vector< DT > y( N );
 
 	size_t iteration = 0;
 	ISS.count_rasidual_vector( x, b, r );
@@ -1406,11 +1406,11 @@ void dynamic_storage_scheme< TYPE >::iterative_refinement( const input_storage_s
 *  @throw exception     - when relaxation parameters is out of range (0, 2)
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::set_relaxation_parameter( double _relaxation_parameter )
+template < typename T >
+void dynamic_storage_scheme< T >::set_relaxation_parameter( double _relaxation_parameter )
 {
 	if( _relaxation_parameter <= 0.0 || _relaxation_parameter >= 2.0 )
-		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::set_relaxation_parameter: wrong parameter" );
+		throw std::invalid_argument( "dynamic_storage_scheme< T >::set_relaxation_parameter: wrong parameter" );
 
 	relaxation_parameter = _relaxation_parameter;
 }
@@ -1422,11 +1422,11 @@ void dynamic_storage_scheme< TYPE >::set_relaxation_parameter( double _relaxatio
 *  @throw exception     - when stored matrix has at least one zero diagonal element
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::iterative_preparation( void )
+template < typename T >
+void dynamic_storage_scheme< T >::iterative_preparation( void )
 {
 	if( dynamic_state != DYNAMIC_STATE::ROL_INIT )
-		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::iterative_preparation: ROL_INIT is required" );
+		throw std::invalid_argument( "dynamic_storage_scheme< T >::iterative_preparation: ROL_INIT is required" );
 
 	for( size_t row = 0; row < number_of_rows; ++row )
 	{
@@ -1438,7 +1438,7 @@ void dynamic_storage_scheme< TYPE >::iterative_preparation( void )
 				++HA[ row ][ 2 ];
 			else if( col_number < row )
 			{
-				TYPE val = A[ idx ];
+				T val = A[ idx ];
 				CN[ idx ] = CN[ HA[ row ][ 2 ] ];
 				A[ idx ] = A[ HA[ row ][ 2 ] ];
 				CN[ HA[ row ][ 2 ] ] = col_number;
@@ -1451,7 +1451,7 @@ void dynamic_storage_scheme< TYPE >::iterative_preparation( void )
 				--idx;
 			}
 		}
-		if( PIVOT[ row ] == TYPE{ 0 } )
+		if( PIVOT[ row ] == T{ 0 } )
 			throw std::invalid_argument( "iterative_preparation: diagonal element is equal to zero" );
 	}
 
@@ -1467,25 +1467,25 @@ void dynamic_storage_scheme< TYPE >::iterative_preparation( void )
 *  @param prev_x                - [out] started approximation
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::SOR_iteration( std::vector< DTYPE >& x, const std::vector< DTYPE >& b, std::vector< DTYPE >& prev_x ) const
+template < typename T >
+void dynamic_storage_scheme< T >::SOR_iteration( std::vector< DT >& x, const std::vector< DT >& b, std::vector< DT >& prev_x ) const
 {
 	if( dynamic_state != DYNAMIC_STATE::ITERATIVE )
-		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::SOR_iteration: iterative_preparation is needed before" );
+		throw std::invalid_argument( "dynamic_storage_scheme< T >::SOR_iteration: iterative_preparation is needed before" );
 	if( number_of_columns != number_of_rows )
-		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::SOR_iteration: matrix is not squared" );
+		throw std::invalid_argument( "dynamic_storage_scheme< T >::SOR_iteration: matrix is not squared" );
 
 	for( size_t row = 0; row < number_of_rows; ++row )
 	{
 		x[ row ] = b[ row ];
 		int idx = HA[ row ][ 1 ];
 		for( ; idx < HA[ row ][ 2 ]; ++idx )
-			x[ row ] -= ( static_cast< DTYPE >( A[ idx ] ) * x[ CN[ idx ] ] );
+			x[ row ] -= ( static_cast< DT >( A[ idx ] ) * x[ CN[ idx ] ] );
 		for( ; idx <= HA[ row ][ 3 ]; ++idx )
-			x[ row ] -= ( static_cast< DTYPE >( A[ idx ] ) * prev_x[ CN[ idx ] ] );
+			x[ row ] -= ( static_cast< DT >( A[ idx ] ) * prev_x[ CN[ idx ] ] );
 		x[ row ] *= relaxation_parameter;
 		x[ row ] /= PIVOT[ row ];
-		x[ row ] += ( static_cast< DTYPE >( 1 - relaxation_parameter ) ) * prev_x[ row ];
+		x[ row ] += ( static_cast< DT >( 1 - relaxation_parameter ) ) * prev_x[ row ];
 	}
 }
 
@@ -1496,8 +1496,8 @@ void dynamic_storage_scheme< TYPE >::SOR_iteration( std::vector< DTYPE >& x, con
 *  @param file_name       - [in] name of a output file
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::print_sparsity_pattern( const char* file_name )
+template < typename T >
+void dynamic_storage_scheme< T >::print_sparsity_pattern( const char* file_name )
 {
 	std::ofstream outFile;
 
@@ -1538,14 +1538,14 @@ void dynamic_storage_scheme< TYPE >::print_sparsity_pattern( const char* file_na
 *  @param pos2          - [in] current position in matrix of second specified row
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-inline void dynamic_storage_scheme< TYPE >::permute_rows( size_t pos1, size_t pos2 )
+template < typename T >
+inline void dynamic_storage_scheme< T >::permute_rows( size_t pos1, size_t pos2 )
 {
 	if( pos1 == pos2 )
 		return;
 
 	if( pos1 >= number_of_rows || pos2 >= number_of_rows )
-		throw std::out_of_range( "dynamic_storage_scheme< TYPE >::permute_rows: values out of range" );
+		throw std::out_of_range( "dynamic_storage_scheme< T >::permute_rows: values out of range" );
 
 	HA[ HA[ pos1 ][ 7 ] ][ 8 ] = pos2;
 	HA[ HA[ pos2 ][ 7 ] ][ 8 ] = pos1;
@@ -1561,14 +1561,14 @@ inline void dynamic_storage_scheme< TYPE >::permute_rows( size_t pos1, size_t po
 *  @param pos2          - [in] current position in matrix of second specified column
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-inline void dynamic_storage_scheme< TYPE >::permute_cols( size_t pos1, size_t pos2 )
+template < typename T >
+inline void dynamic_storage_scheme< T >::permute_cols( size_t pos1, size_t pos2 )
 {
 	if( pos1 == pos2 )
 		return;
 
 	if( pos1 >= number_of_columns || pos2 >= number_of_columns )
-		throw std::out_of_range( "dynamic_storage_scheme< TYPE >::permute_cols: values out of range" );
+		throw std::out_of_range( "dynamic_storage_scheme< T >::permute_cols: values out of range" );
 
 	HA[ HA[ pos1 ][ 9 ] ][ 10 ] = pos2;
 	HA[ HA[ pos2 ][ 9 ] ][ 10 ] = pos1;
@@ -1593,8 +1593,8 @@ inline void dynamic_storage_scheme< TYPE >::permute_cols( size_t pos1, size_t po
 */
 //-------------------------------------------------------------------------------------------------
 
-template < typename TYPE >
-STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int orig_row, int orig_col, bool garbage_on, size_t* store_index )
+template < typename T >
+STORING_STATUS dynamic_storage_scheme< T >::store_fillin_ROL( T val, int orig_row, int orig_col, bool garbage_on, size_t* store_index )
 {
 	// if row isn't empty
 	// ==================
@@ -1686,7 +1686,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 			size_t new_mem = static_cast< size_t >( NROL * expanding_mult );
 
 			if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
-				A.insert( A.end(), new_mem, TYPE{ 0 } );
+				A.insert( A.end(), new_mem, T{ 0 } );
 
 			CN.insert( CN.end(), new_mem, FREE );
 			NROL = CN.size();
@@ -1722,7 +1722,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 			size_t new_mem = static_cast< size_t >( NROL * expanding_mult );
 
 			if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
-				A.insert( A.end(), new_mem, TYPE{ 0 } );
+				A.insert( A.end(), new_mem, T{ 0 } );
 
 			CN.insert( CN.end(), new_mem, FREE );
 			NROL = CN.size();
@@ -1739,8 +1739,8 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_ROL( TYPE val, int o
 *  Function performs the organize of the elements in a compact structure
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::garbage_collection_in_ROL( void )
+template < typename T >
+void dynamic_storage_scheme< T >::garbage_collection_in_ROL( void )
 {
 	// Mark beginings of row packages by setting numbers less then FREE  in CN
 	// =========================================================================
@@ -1803,8 +1803,8 @@ void dynamic_storage_scheme< TYPE >::garbage_collection_in_ROL( void )
 *  @return STORING_FAIL                    - if element wasn't successfuly stored
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val, int orig_row, int orig_col, bool garbage_on, size_t* store_index )
+template < typename T >
+STORING_STATUS dynamic_storage_scheme< T >::store_fillin_COL( T val, int orig_row, int orig_col, bool garbage_on, size_t* store_index )
 {
 	// if column isn't empty
 	// =====================
@@ -1895,7 +1895,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val, int o
 			size_t new_mem = static_cast< size_t >( NCOL * expanding_mult );
 
 			if( dynamic_state == DYNAMIC_STATE::COL_INIT )
-				A.insert( A.end(), new_mem, TYPE{ 0 } );
+				A.insert( A.end(), new_mem, T{ 0 } );
 
 			RN.insert( RN.end(), new_mem, FREE );
 			NCOL = RN.size();
@@ -1931,7 +1931,7 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val, int o
 			size_t new_mem = static_cast< size_t >( NCOL * expanding_mult );
 
 			if( dynamic_state == DYNAMIC_STATE::COL_INIT )
-				A.insert( A.end(), new_mem, TYPE{ 0 } );
+				A.insert( A.end(), new_mem, T{ 0 } );
 
 			RN.insert( RN.end(), new_mem, FREE );
 			NCOL = RN.size();
@@ -1948,8 +1948,8 @@ STORING_STATUS dynamic_storage_scheme< TYPE >::store_fillin_COL( TYPE val, int o
 *  Function performs the organize of the elements in a compact structure
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::garbage_collection_in_COL( void )
+template < typename T >
+void dynamic_storage_scheme< T >::garbage_collection_in_COL( void )
 {
 	// Mark beginings of column packages by setting numbers less then FREE in RN
 	// ===========================================================================
@@ -2004,8 +2004,8 @@ void dynamic_storage_scheme< TYPE >::garbage_collection_in_COL( void )
 *  @param row                  - [in] row-package of specified element
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-inline void dynamic_storage_scheme< TYPE >::deactivate_element_in_ROL( size_t index, size_t row )
+template < typename T >
+inline void dynamic_storage_scheme< T >::deactivate_element_in_ROL( size_t index, size_t row )
 {
 	std::swap( CN[ index ], CN[ HA[ row ][ 2 ] ] );
 	if( dynamic_state == DYNAMIC_STATE::ROL_INIT )
@@ -2022,8 +2022,8 @@ inline void dynamic_storage_scheme< TYPE >::deactivate_element_in_ROL( size_t in
 *  @param col                  - [in] col-package of specified element
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-inline void dynamic_storage_scheme< TYPE >::deactivate_element_in_COL( size_t index, size_t col )
+template < typename T >
+inline void dynamic_storage_scheme< T >::deactivate_element_in_COL( size_t index, size_t col )
 {
 	std::swap( RN[ index ], RN[ HA[ col ][ 5 ] ] );
 	if( dynamic_state == DYNAMIC_STATE::COL_INIT )
@@ -2040,8 +2040,8 @@ inline void dynamic_storage_scheme< TYPE >::deactivate_element_in_COL( size_t in
 *  @param row                  - [in] row-package of speccified element
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-inline void dynamic_storage_scheme< TYPE >::eliminate_element_in_ROL( size_t index, size_t row )
+template < typename T >
+inline void dynamic_storage_scheme< T >::eliminate_element_in_ROL( size_t index, size_t row )
 {
 	A[ index ] = A[ HA[ row ][ 3 ] ];
 	CN[ index ] = CN[ HA[ row ][ 3 ] ];
@@ -2065,8 +2065,8 @@ inline void dynamic_storage_scheme< TYPE >::eliminate_element_in_ROL( size_t ind
 *  @param col                  - [in] column-package of speccified element
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-inline void dynamic_storage_scheme< TYPE >::eliminate_element_in_COL( size_t index, size_t col )
+template < typename T >
+inline void dynamic_storage_scheme< T >::eliminate_element_in_COL( size_t index, size_t col )
 {
 	RN[ index ] = RN[ HA[ col ][ 6 ] ];
 	RN[ HA[ col ][ 6 ] ] = FREE;
@@ -2089,12 +2089,10 @@ inline void dynamic_storage_scheme< TYPE >::eliminate_element_in_COL( size_t ind
 *  @param row                  - [in] row-package of speccified element
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::delete_column_package_in_COL( size_t col )
+template < typename T >
+void dynamic_storage_scheme< T >::delete_column_package_in_COL( size_t col )
 {
-	const int col_end = HA[ col ][ 6 ];
-
-	for( int col_idx = HA[ col ][ 4 ]; col_idx <= col_end; col_idx++ )
+	for( int col_idx = HA[ col ][ 4 ]; col_idx <= HA[ col ][ 6 ]; col_idx++ )
 		RN[ col_idx ] = FREE;
 	CCOL -= ( ( size_t )HA[ col ][ 6 ] - HA[ col ][ 4 ] + 1 );
 	if( LCOL == HA[ col ][ 6 ] )
@@ -2126,8 +2124,8 @@ void dynamic_storage_scheme< TYPE >::delete_column_package_in_COL( size_t col )
 *  @param mult         - [in] stable parametar
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::choose_pivot_by_ONE_ROW_SEARCHING( size_t stage, double mult )
+template < typename T >
+void dynamic_storage_scheme< T >::choose_pivot_by_ONE_ROW_SEARCHING( size_t stage, double mult )
 {
 	size_t INDEX;
 	double max_val = 0;
@@ -2151,7 +2149,7 @@ void dynamic_storage_scheme< TYPE >::choose_pivot_by_ONE_ROW_SEARCHING( size_t s
 		}
 	}
 	if( max_val == 0 )
-		throw std::runtime_error( "dynamic_storage_scheme< TYPE >::choose_pivot_by_ONE_ROW_SEARCHING: some active row contains only zeroes in its active part" );
+		throw std::runtime_error( "dynamic_storage_scheme< T >::choose_pivot_by_ONE_ROW_SEARCHING: some active row contains only zeroes in its active part" );
 
 	ABS_VAL = max_val;
 
@@ -2188,8 +2186,8 @@ void dynamic_storage_scheme< TYPE >::choose_pivot_by_ONE_ROW_SEARCHING( size_t s
 *  @param mult         - [in] stable parametar
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::choose_pivot_by_MARKOWITZ_COST( size_t stage, size_t search, double mult )
+template < typename T >
+void dynamic_storage_scheme< T >::choose_pivot_by_MARKOWITZ_COST( size_t stage, size_t search, double mult )
 {
 	const size_t LastSearch = ( stage + search < number_of_rows ? stage + search : number_of_rows );
 	size_t INDEX{ 0 };
@@ -2212,7 +2210,7 @@ void dynamic_storage_scheme< TYPE >::choose_pivot_by_MARKOWITZ_COST( size_t stag
 		for( int idx = begin_row; idx <= end_row; idx++ )
 		{
 			if( idx <= FREE )
-				throw std::runtime_error( "dynamic_storage_scheme< TYPE >::choose_pivot_by_MARKOWITZ_COST: some active row is empty" );
+				throw std::runtime_error( "dynamic_storage_scheme< T >::choose_pivot_by_MARKOWITZ_COST: some active row is empty" );
 
 			const double temp_abs_val = std::abs( A[ idx ] );
 			if( temp_abs_val > max_val )
@@ -2224,7 +2222,7 @@ void dynamic_storage_scheme< TYPE >::choose_pivot_by_MARKOWITZ_COST( size_t stag
 		double abs_val = max_val;
 		const int row_mult = end_row - begin_row;
 		if( index == FREE )
-			throw std::runtime_error( "dynamic_storage_scheme< TYPE >::choose_pivot_by_MARKOWITZ_COST: some active row contains only zeroes in its active part" );
+			throw std::runtime_error( "dynamic_storage_scheme< T >::choose_pivot_by_MARKOWITZ_COST: some active row contains only zeroes in its active part" );
 
 		int min_mcost = row_mult * ( HA[ CN[ index ] ][ 6 ] - HA[ CN[ index ] ][ 5 ] );
 		for( int idx = begin_row; idx <= end_row; idx++ )
@@ -2275,8 +2273,8 @@ void dynamic_storage_scheme< TYPE >::choose_pivot_by_MARKOWITZ_COST( size_t stag
 *  @param r            - [in] right index of sorting range
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::sort_rows( int l, int r )
+template < typename T >
+void dynamic_storage_scheme< T >::sort_rows( int l, int r )
 {
 	if( !r )
 		r = number_of_rows - 1;
@@ -2313,8 +2311,8 @@ void dynamic_storage_scheme< TYPE >::sort_rows( int l, int r )
 *  @param r            - [in] right index of sorting range
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::sort_cols( int l, int r )
+template < typename T >
+void dynamic_storage_scheme< T >::sort_cols( int l, int r )
 {
 	if( !r )
 		r = number_of_columns - 1;
@@ -2349,11 +2347,11 @@ void dynamic_storage_scheme< TYPE >::sort_cols( int l, int r )
 *  and choosing potentially minimal fillin cost
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::sort_rows_ROWAMD()
+template < typename T >
+void dynamic_storage_scheme< T >::sort_rows_ROWAMD()
 {
 	if( dynamic_state != DYNAMIC_STATE::ROL_INIT )
-		throw std::invalid_argument( " dynamic_storage_scheme< TYPE >::sort_rows_ROWAMD - ROL_INIT state reqired" );
+		throw std::invalid_argument( " dynamic_storage_scheme< T >::sort_rows_ROWAMD - ROL_INIT state reqired" );
 
 	std::map< int, std::map< int, bool > > row_connections;
 
@@ -2416,11 +2414,11 @@ void dynamic_storage_scheme< TYPE >::sort_rows_ROWAMD()
 *  and choosing potentially minimal fillin cost
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::sort_cols_COLAMD()
+template < typename T >
+void dynamic_storage_scheme< T >::sort_cols_COLAMD()
 {
 	if( dynamic_state != DYNAMIC_STATE::COL_INIT )
-		throw std::invalid_argument( " dynamic_storage_scheme< TYPE >::sort_cols_COLAMD - COL_INIT state reqired" );
+		throw std::invalid_argument( " dynamic_storage_scheme< T >::sort_cols_COLAMD - COL_INIT state reqired" );
 
 	std::map< int, std::map< int, bool > > col_connections;
 
@@ -2482,11 +2480,11 @@ void dynamic_storage_scheme< TYPE >::sort_cols_COLAMD()
 *  rows scaling is used for LU_decomposition
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::rows_scaling()
+template < typename T >
+void dynamic_storage_scheme< T >::rows_scaling()
 {
 	if( dynamic_state != DYNAMIC_STATE::ROL_INIT )
-		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::rows_scaling: ROL_INIT state is required" );
+		throw std::invalid_argument( "dynamic_storage_scheme< T >::rows_scaling: ROL_INIT state is required" );
 
 	double max_scalar{ 0.0 };
 	scalars.resize( number_of_rows, 0.0 );
@@ -2504,7 +2502,7 @@ void dynamic_storage_scheme< TYPE >::rows_scaling()
 		scalars[ row ] = ( max_scalar / scalars[ row ] );
 
 		for( int c_idx{ HA[ row ][ 1 ] }; c_idx <= HA[ row ][ 3 ]; ++c_idx )
-			A[ c_idx ] *= static_cast< TYPE >( scalars[ row ] );
+			A[ c_idx ] *= static_cast< T >( scalars[ row ] );
 	}
 }
 
@@ -2514,11 +2512,11 @@ void dynamic_storage_scheme< TYPE >::rows_scaling()
 *  cols scaling is used for QR_decomposition
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::cols_scaling()
+template < typename T >
+void dynamic_storage_scheme< T >::cols_scaling()
 {
 	if( dynamic_state != DYNAMIC_STATE::COL_INIT )
-		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::cols_scaling: COL_INIT state is required" );
+		throw std::invalid_argument( "dynamic_storage_scheme< T >::cols_scaling: COL_INIT state is required" );
 
 	double max_scalar{ 0.0 };
 	scalars.resize( number_of_columns, 0.0 );
@@ -2536,7 +2534,7 @@ void dynamic_storage_scheme< TYPE >::cols_scaling()
 		scalars[ col ] = ( max_scalar / scalars[ col ] );
 
 		for( int r_idx{ HA[ col ][ 4 ] }; r_idx <= HA[ col ][ 6 ]; ++r_idx )
-			A[ r_idx ] *= static_cast< TYPE >( scalars[ col ] );
+			A[ r_idx ] *= static_cast< T >( scalars[ col ] );
 	}
 }
 
@@ -2546,8 +2544,8 @@ void dynamic_storage_scheme< TYPE >::cols_scaling()
 *  @param file_name         - [in] name of file to which scheme should be printed
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-void dynamic_storage_scheme< TYPE >::print_scheme_to_file( const char* file_name )
+template < typename T >
+void dynamic_storage_scheme< T >::print_scheme_to_file( const char* file_name )
 {
 	std::ofstream outFile;
 
@@ -2938,8 +2936,8 @@ void dynamic_storage_scheme< TYPE >::print_scheme_to_file( const char* file_name
 *  @param DSS                   - [in] dynamic storage scheme
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE2>
-std::ostream& operator<<( std::ostream& out, const dynamic_storage_scheme< TYPE2>& DSS )
+template < typename T2 >
+std::ostream& operator<<( std::ostream& out, const dynamic_storage_scheme< T2 >& DSS )
 {
 	// empty so far
 
@@ -2959,8 +2957,8 @@ std::ostream& operator<<( std::ostream& out, const dynamic_storage_scheme< TYPE2
 *  Returns amount of non zero elements
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-size_t dynamic_storage_scheme< TYPE >::get_non_zeros_amount() const
+template < typename T >
+size_t dynamic_storage_scheme< T >::get_non_zeros_amount() const
 {
 	size_t count{ 0 };
 
@@ -2982,7 +2980,7 @@ size_t dynamic_storage_scheme< TYPE >::get_non_zeros_amount() const
 		break;
 
 	default:
-		throw std::invalid_argument( "dynamic_storage_scheme< TYPE >::get_non_zeros_amount - dynamic_state not supported" );
+		throw std::invalid_argument( "dynamic_storage_scheme< T >::get_non_zeros_amount - dynamic_state not supported" );
 	}
 
 	return count;
@@ -2993,8 +2991,8 @@ size_t dynamic_storage_scheme< TYPE >::get_non_zeros_amount() const
 *  Function checks the consistency of the data contained in dynamic_storage_scheme
 */
 //-------------------------------------------------------------------------------------------------
-template < typename TYPE >
-int dynamic_storage_scheme< TYPE >::check_integrity_test() const
+template < typename T >
+int dynamic_storage_scheme< T >::check_integrity_test() const
 {
 	int a, b, c;
 	int ret_val = 0;
