@@ -34,11 +34,11 @@ class input_storage_scheme
 {
 public:
 	/// number of added elements - sizes of arrays: AORIG, RNORIG and CNORIG
-	const size_t NNZ;
+	const size_t NNZ{ 0 };
 	/// sizes of stored matrix
-	const size_t number_of_rows, number_of_columns;
+	const size_t number_of_rows{ 0 }, number_of_columns{ 0 };
 	/// not always real order of a matrix, just min(number_of_rows,number_of_columns)
-	const size_t order;
+	const size_t order{ 0 };
 
 private:
 		/// array of ORIGinal values of the input matrix A
@@ -49,26 +49,16 @@ private:
 	std::vector< int > CNORIG;
 
 public:
-	/// default constructor
-	input_storage_scheme()
-		:
-		NNZ( 0 ),
-		order( 0 ),
-		number_of_rows( 0 ),
-		number_of_columns( 0 )
-	{
-	}
-	/// copy constructor
-	input_storage_scheme( input_storage_scheme< T >& ISS );
-	/// constructor which requires sizes of matrix
-	input_storage_scheme( size_t _number_of_rows, size_t _number_of_columns )
-		:
-		number_of_rows( _number_of_rows ),
-		number_of_columns( _number_of_columns ),
-		order( _number_of_rows < _number_of_columns ? _number_of_rows : _number_of_columns ),
-		NNZ( 0 )
-	{
-	}
+	/// constructors
+	input_storage_scheme() = default;
+	input_storage_scheme( const input_storage_scheme< T >& ISS ) = default;
+	input_storage_scheme( input_storage_scheme< T >&& ISS ) = default;
+	input_storage_scheme( size_t _number_of_rows, size_t _number_of_columns );
+
+	/// destructor
+	~input_storage_scheme() = default;
+
+	void init( size_t _number_of_rows, size_t _number_of_columns );
 
 	/// double type used in solving / refinement
 	using DT = typename double_type< T >::type;
@@ -102,26 +92,41 @@ private:
 	template < typename T >
 	friend void CheckAxb( const input_storage_scheme< T >& ISS, const std::vector< T >& x, std::vector< T >& b );
 };
-//---------------------------------------------------------------------------- input_storage_scheme
+
+//-------------------------------------------------------------------------------------------- init
 /**
-*  Copy constructor
+*  Method initializes input storage scheme
 *
-*  @param ISS            - [in] object to be copied
+*  @param _number_of_rows
+*  @param _number_of_columns
 *
+*  @throw out_of_range
 */
 //-------------------------------------------------------------------------------------------------
 template < typename T >
-input_storage_scheme< T >::input_storage_scheme( input_storage_scheme< T >& ISS )
-	:
-	number_of_rows( ISS.number_of_rows ),
-	number_of_columns( ISS.number_of_columns ),
-	order( ISS.order ),
-	NNZ( ISS.NNZ )
+input_storage_scheme< T >::input_storage_scheme( size_t _number_of_rows, size_t _number_of_columns )
 {
-	AORIG = ISS.AORIG;
-	RNORIG = ISS.RNORIG;
-	CNORIG = ISS.CNORIG;
+	init( _number_of_rows, _number_of_columns );
 }
+
+//-------------------------------------------------------------------------------------------- init
+/**
+*  Method initializes input storage scheme
+*
+*  @param _number_of_rows
+*  @param _number_of_columns
+*
+*  @throw out_of_range
+*/
+//-------------------------------------------------------------------------------------------------
+template < typename T >
+void input_storage_scheme< T >::init( size_t _number_of_rows, size_t _number_of_columns )
+{
+	const_cast< size_t& >( number_of_rows ) = _number_of_rows;
+	const_cast< size_t& >( number_of_columns ) = _number_of_columns;
+	const_cast< size_t& >( order ) = ( _number_of_rows < _number_of_columns ? _number_of_rows : _number_of_columns );
+}
+
 //------------------------------------------------------------------------------------- add_element
 /**
 *  Method used to adding elements
@@ -485,9 +490,9 @@ class dynamic_storage_scheme
 private:
 	//======== MATRIX - BASIC INFORMATIONS ========
 	/// sizes of stored matrix
-	const size_t number_of_rows, number_of_columns;
+	const size_t number_of_rows{ 0 }, number_of_columns{ 0 };
 	/// mostly  = min(number_of_rows, number_of_columns)
-	const size_t order;
+	const size_t order{ 0 };
 
 	/// array of values of the elements stored in scheme (indexed from 0)
 	std::vector< T > A;
@@ -539,11 +544,19 @@ private:
 	const float expanding_mult{ 0.5 };
 
 public:
-	/// Constructor - input_storage_scheme require and two floats that determine sizes of storage lists
-	///               in flollowing way: NROL = mult1 * ISS->NNZ, NCOL = mult2 * NROL
+	/// constructors
+	dynamic_storage_scheme() = default;
+	dynamic_storage_scheme( const dynamic_storage_scheme& ) = default;
+	dynamic_storage_scheme( dynamic_storage_scheme&& ) = default;
 	dynamic_storage_scheme( const input_storage_scheme< T >& ISS, double mult1, double mult2 = 0.7, DYNAMIC_STATE _dynamic_state = DYNAMIC_STATE::ROL_INIT );
+
 	/// Destructor
 	~dynamic_storage_scheme() = default;
+
+	/// initates dynamic scheme
+	/// input_storage_scheme requireand two floats that determine sizes of storage lists
+	/// in flollowing way: LeadDimSize = mult1 * ISS->NNZ, MinorDimSize = mult2 * ISS->NNZ
+	void init( const input_storage_scheme< T >& ISS, double mult1, double mult2 = 0.7, DYNAMIC_STATE _dynamic_state = DYNAMIC_STATE::ROL_INIT );
 
 	/// double type for this template
 	using DT = typename double_type< T >::type;
@@ -578,8 +591,6 @@ public:
 	void print_sparsity_pattern( const char* file_name );
 
 private:
-	// Disable default constructor
-	dynamic_storage_scheme();
 
 	//============== DYNAMIC SCHEME MANIPULATORS ==============
 	/// Function permuts row lying on pos1 position with row lying on pos2 position
@@ -632,10 +643,28 @@ private:
 	friend std::ostream& operator<<( std::ostream& out, const dynamic_storage_scheme< T2 >& DSS );
 };
 
-
-//-------------------------------------------------------------------------- dynamic_storage_scheme
+//-------------------------------------------------------------------------------------------- init
 /**
 *  The only one constructor which requires following parameters:
+*
+*  @param ISS              - [in] The input scheme under which creates a dynamic scheme
+*  @param mult1            - [in] sizeof( lead dim list ) = mult1 * sizeof( ISS )
+*  @param mult2            - [in] sizeof( follow dim list ) = mult2 * sizeof( ISS )
+*  @param _dynamic_state   - [in] required init state ROL_INIT or COL_INIT
+*                                 depending on what we want to do
+*
+*  @throw bad_alloc        - when scheme couldn't be allocate
+*/
+//-------------------------------------------------------------------------------------------------
+template < typename T >
+dynamic_storage_scheme< T >::dynamic_storage_scheme( const input_storage_scheme< T >& ISS, double mult1, double mult2, DYNAMIC_STATE _dynamic_state )
+{
+	init( ISS, mult1, mult2, _dynamic_state );
+}
+
+//-------------------------------------------------------------------------------------------- init
+/**
+*  Init method which requires following parameters:
 *
 *  @param ISS              - [in] The input scheme under which creates a dynamic scheme
 *  @param mult1            - [in] sizeof( lead dim list ) = mult1 * sizeof( ISS )
@@ -647,14 +676,13 @@ private:
 */
 //-------------------------------------------------------------------------------------------------
 template < typename T >
-dynamic_storage_scheme< T >::
-dynamic_storage_scheme( const input_storage_scheme< T >& ISS, double mult1, double mult2, DYNAMIC_STATE _dynamic_state )
-	:
-	number_of_rows( ISS.number_of_rows ),
-	number_of_columns( ISS.number_of_columns ),
-	order( ISS.number_of_rows < ISS.number_of_columns ? ISS.number_of_rows : ISS.number_of_columns ),
-	dynamic_state( _dynamic_state )
+void dynamic_storage_scheme< T >::init( const input_storage_scheme< T >& ISS, double mult1, double mult2, DYNAMIC_STATE _dynamic_state )
 {
+	const_cast< size_t& >( number_of_rows ) = ISS.number_of_rows;
+	const_cast< size_t& >( number_of_columns ) = ISS.number_of_columns;
+	const_cast< size_t& >( order ) = ( ISS.number_of_rows < ISS.number_of_columns ? ISS.number_of_rows : ISS.number_of_columns );
+	dynamic_state = _dynamic_state;
+
 	if( dynamic_state != DYNAMIC_STATE::ROL_INIT && dynamic_state != DYNAMIC_STATE::COL_INIT )
 		throw std::invalid_argument( "dynamic_storage_scheme< T >::dynamic_storage_scheme - ROL_INIT or COL_INIT required as init" );
 
