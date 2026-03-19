@@ -545,8 +545,10 @@ public:
 	/// Destructor
 	~dynamic_storage_scheme() = default;
 
-	/// double type used in solving / refinement
+	/// double type for this template
 	using DT = typename double_type< T >::type;
+	/// real type for this template
+	using RT = typename real_type< T >::type;
 
 	/// Method to dump the contents of the schema
 	void print_scheme_to_file( const char* file_name );
@@ -1125,7 +1127,6 @@ void dynamic_storage_scheme< T >::QR_decomposition( bool scaling, LD_PREPARATION
 	if( number_of_columns != number_of_rows )
 		throw std::invalid_argument( "dynamic_storage_scheme< T >::QR_decomposition: matrix is not squared" );
 
-	using RT = real_type< T >::type;
 	using pfillin = std::pair< T, int >;
 
 	VFIRST.resize( NHA );
