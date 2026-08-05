@@ -32,16 +32,15 @@
 template < typename T >
 class input_storage_scheme
 {
-public:
-	/// number of added elements - sizes of arrays: AORIG, RNORIG and CNORIG
-	const size_t NNZ{ 0 };
-	/// sizes of stored matrix
-	const size_t number_of_rows{ 0 }, number_of_columns{ 0 };
-	/// not always real order of a matrix, just min(number_of_rows,number_of_columns)
-	const size_t order{ 0 };
-
 private:
-		/// array of ORIGinal values of the input matrix A
+	/// number of added elements - sizes of arrays: AORIG, RNORIG and CNORIG
+	size_t NNZ{ 0 };
+	/// sizes of stored matrix
+	size_t number_of_rows{ 0 }, number_of_columns{ 0 };
+	/// not always real order of a matrix, just min(number_of_rows,number_of_columns)
+	size_t order{ 0 };
+
+	/// array of ORIGinal values of the input matrix A
 	std::vector< T > AORIG;
 	/// array of ORIGinal row numbers of the input matrix A (indexed from 0)
 	std::vector< int > RNORIG;
@@ -69,7 +68,10 @@ public:
 	/// method counts residual vector r_i = Ax_i - b
 	void count_rasidual_vector( const std::vector< DT >& x, const std::vector< DT >& b, std::vector< DT >& r ) const;
 	/// assigned operator
-	input_storage_scheme< T >& operator= ( input_storage_scheme< T >& ISS );
+	input_storage_scheme< T >& operator= ( const input_storage_scheme< T >& ISS ) = default;
+	/// assigned move operator
+	input_storage_scheme< T >& operator= ( input_storage_scheme< T >&& ISS ) noexcept = default;
+
 private:
 
 	/// Definition of basic out_stream operator
@@ -168,25 +170,6 @@ void input_storage_scheme< T >::count_rasidual_vector( const std::vector< DT >& 
 		r[ RNORIG[ idx ] ] += ( x[ CNORIG[ idx ] ] * static_cast< DT >( AORIG[ idx ] ) );
 }
 
-//--------------------------------------------------------------------------- operator=
-/**
-*  The assignment operator
-*
-*  @param ISS                - [in] the assigned input scheme
-*/
-//-------------------------------------------------------------------------------------------------
-template < typename T >
-input_storage_scheme< T >& input_storage_scheme< T >:: operator= ( input_storage_scheme< T >& ISS )
-{
-	const_cast< size_t& >( number_of_rows ) = ISS.number_of_rows;
-	const_cast< size_t& >( number_of_columns ) = ISS.number_of_columns;
-	const_cast< size_t& >( order ) = ISS.order;
-	const_cast< size_t& >( NNZ ) = ISS.NNZ;
-	AORIG = ISS.AORIG;
-	RNORIG = ISS.RNORIG;
-	CNORIG = ISS.CNORIG;
-	return *this;
-}
 //-------------------------------------------------------------------------------------- operator<<
 /**
 *  Standard outstream operator
@@ -490,9 +473,9 @@ class dynamic_storage_scheme
 private:
 	//======== MATRIX - BASIC INFORMATIONS ========
 	/// sizes of stored matrix
-	const size_t number_of_rows{ 0 }, number_of_columns{ 0 };
+	size_t number_of_rows{ 0 }, number_of_columns{ 0 };
 	/// mostly  = min(number_of_rows, number_of_columns)
-	const size_t order{ 0 };
+	size_t order{ 0 };
 
 	/// array of values of the elements stored in scheme (indexed from 0)
 	std::vector< T > A;
@@ -552,6 +535,11 @@ public:
 
 	/// Destructor
 	~dynamic_storage_scheme() = default;
+
+	/// assign copy operator of the same type T
+	dynamic_storage_scheme& operator=( const dynamic_storage_scheme& ) = default;
+	/// assign move operator of the same type T
+	dynamic_storage_scheme& operator=( dynamic_storage_scheme&& ) noexcept = default;
 
 	/// initates dynamic scheme
 	/// input_storage_scheme requireand two floats that determine sizes of storage lists
